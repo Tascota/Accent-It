@@ -5,7 +5,7 @@ namespace AccentIt.Models;
 public enum CompositionMode
 {
     Nfc,
-    PrecomposedOrRawSequence
+    Nfd
 }
 
 public sealed record AccentPosition(string Id, string DisplayName);

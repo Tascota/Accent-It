@@ -211,7 +211,7 @@ public sealed class AccentCatalogLoader
         }
         else if (!TryParseCompositionMode(dto.Composition.Mode, out compositionMode))
         {
-            Add("composition.mode", "模式必须是 \"nfc\" 或 \"precomposed-or-raw\"。");
+            Add("composition.mode", "模式必须是 \"nfc\" 或 \"nfd\"。");
         }
 
         var rules = new List<SpecialCompositionRule>();
@@ -419,9 +419,8 @@ public sealed class AccentCatalogLoader
             case "nfc":
                 mode = CompositionMode.Nfc;
                 return true;
-            case "precomposedorraw":
-            case "precomposedorrawsequence":
-                mode = CompositionMode.PrecomposedOrRawSequence;
+            case "nfd":
+                mode = CompositionMode.Nfd;
                 return true;
             default:
                 return false;

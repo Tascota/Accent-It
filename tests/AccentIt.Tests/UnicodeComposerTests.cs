@@ -74,33 +74,69 @@ public class UnicodeComposerTests
     }
 
     [Fact]
-    public void StrictModeUsesPrecomposedWhenTheWholeSequenceHasOneScalar()
+    public void NfdModeFullyDecomposesBaseAndMarks()
     {
-        var catalog = TestCatalog.CreateCatalog(CompositionMode.PrecomposedOrRawSequence);
-
-        var result = UnicodeComposer.Compose(
-            new Rune('e'),
-            new[] { "circumflex", "acute" },
-            catalog);
-
-        Assert.Equal(CompositionKind.Precomposed, result.Kind);
-        Assert.Equal(FromCodePoints(0x1EBF), result.Output);
-    }
-
-    [Fact]
-    public void StrictModeFallsBackToTheRawSequence()
-    {
-        var catalog = TestCatalog.CreateCatalog(CompositionMode.PrecomposedOrRawSequence);
+        var catalog = TestCatalog.CreateCatalog(CompositionMode.Nfd);
 
         var result = UnicodeComposer.Compose(
             new Rune('a'),
             new[] { "acute", "dot-below" },
             catalog);
 
-        Assert.Equal(CompositionKind.RawSequence, result.Kind);
-        Assert.Equal(FromCodePoints(0x0061, 0x0301, 0x0323), result.Output);
-        Assert.Equal(new[] { 0x0061, 0x0301, 0x0323 }, result.CodePoints.ToArray());
+        Assert.Equal(CompositionKind.NfdSequence, result.Kind);
+        Assert.Equal(FromCodePoints(0x0061, 0x0323, 0x0301), result.Output);
+        Assert.Equal(new[] { 0x0061, 0x0323, 0x0301 }, result.CodePoints.ToArray());
         Assert.Equal(FromCodePoints(0x1EA1, 0x0301), result.Nfc);
+        Assert.Equal(FromCodePoints(0x0061, 0x0323, 0x0301), result.Nfd);
+    }
+
+    [Fact]
+    public void NfdModeKeepsEveryMarkDecomposedAndDoesNotApplySpecialRules()
+    {
+        var rule = new SpecialCompositionRule(
+            new Rune('a'),
+            new[] { "acute" },
+            new Rune(0x00E0));
+
+        var catalog = TestCatalog.CreateCatalog(
+            CompositionMode.Nfd,
+            new[] { rule });
+
+        var result = UnicodeComposer.Compose(
+            new Rune('a'),
+            new[] { "acute" },
+            catalog);
+
+        Assert.Equal(CompositionKind.NfdSequence, result.Kind);
+        Assert.Equal(FromCodePoints(0x0061, 0x0301), result.Output);
+        Assert.Null(result.AppliedRule);
+    }
+
+    [Fact]
+    public void CompositionModeOverrideCanForceNfd()
+    {
+        var result = UnicodeComposer.Compose(
+            new Rune('e'),
+            new[] { "circumflex" },
+            _catalog,
+            CompositionMode.Nfd);
+
+        Assert.Equal(CompositionKind.NfdSequence, result.Kind);
+        Assert.Equal(FromCodePoints(0x0065, 0x0302), result.Output);
+    }
+
+    [Fact]
+    public void NfdModeDecomposesPrecomposedBaseWithoutMarks()
+    {
+        var catalog = TestCatalog.CreateCatalog(CompositionMode.Nfd);
+
+        var result = UnicodeComposer.Compose(
+            new Rune(0x00E9),
+            Array.Empty<string>(),
+            catalog);
+
+        Assert.Equal(CompositionKind.BaseOnly, result.Kind);
+        Assert.Equal(FromCodePoints(0x0065, 0x0301), result.Output);
     }
 
     [Fact]

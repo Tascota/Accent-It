@@ -37,7 +37,8 @@ public static class UnicodeComposer
     public static CompositionResult Compose(
         Rune baseLetter,
         IReadOnlyList<string> markIds,
-        AccentCatalog catalog)
+        AccentCatalog catalog,
+        CompositionMode? modeOverride = null)
     {
         ArgumentNullException.ThrowIfNull(markIds);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -77,6 +78,16 @@ public static class UnicodeComposer
             ? baseText
             : baseText + string.Concat(marks.Select(mark => mark.Symbol.ToString()));
         var nfc = rawSequence.Normalize(NormalizationForm.FormC);
+        var mode = modeOverride ?? catalog.CompositionMode;
+
+        if (mode == CompositionMode.Nfd)
+        {
+            return CompositionResult.Success(
+                rawSequence.Normalize(NormalizationForm.FormD),
+                rawSequence,
+                nfc,
+                marks.Count == 0 ? CompositionKind.BaseOnly : CompositionKind.NfdSequence);
+        }
 
         if (marks.Count > 0)
         {
@@ -103,16 +114,6 @@ public static class UnicodeComposer
         }
 
         var scalarCount = nfc.EnumerateRunes().Count();
-
-        if (catalog.CompositionMode == CompositionMode.PrecomposedOrRawSequence && scalarCount != 1)
-        {
-            return CompositionResult.Success(
-                rawSequence,
-                rawSequence,
-                nfc,
-                CompositionKind.RawSequence);
-        }
-
         var kind = scalarCount == 1
             ? CompositionKind.Precomposed
             : CompositionKind.NfcSequence;

@@ -17,8 +17,10 @@ public partial class MainWindow : Window
     private AccentCatalog? _catalog;
     private CatalogLoadResult? _loadResult;
     private CompositionResult? _lastResult;
+    private CompositionMode _outputMode = CompositionMode.Nfc;
     private bool _uiReady;
     private bool _updatingMarkButtons;
+    private bool _updatingOutputMode;
 
     public MainWindow()
     {
@@ -68,6 +70,8 @@ public partial class MainWindow : Window
         }
 
         _catalog = _loadResult.Catalog;
+        _outputMode = _catalog?.CompositionMode ?? CompositionMode.Nfc;
+        UpdateOutputModeUi();
 
         if (_catalog is not null)
         {
@@ -87,6 +91,8 @@ public partial class MainWindow : Window
         var fallback = result?.UsedFallback == true;
 
         BaseLetterBox.IsEnabled = !failed;
+        NfcOutputRadio.IsEnabled = !failed;
+        NfdOutputRadio.IsEnabled = !failed;
 
         if (failed)
         {
@@ -132,6 +138,41 @@ public partial class MainWindow : Window
             ? "诊断详情"
             : $"诊断详情（{issues.Count} 条配置提示）";
         DiagnosticsExpander.IsExpanded = failed || issues.Count > 0;
+    }
+
+    private void OutputModeRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!_uiReady || _updatingOutputMode)
+        {
+            return;
+        }
+
+        var mode = ReferenceEquals(sender, NfdOutputRadio)
+            ? CompositionMode.Nfd
+            : CompositionMode.Nfc;
+
+        if (_outputMode == mode)
+        {
+            return;
+        }
+
+        _outputMode = mode;
+        UpdatePreview();
+    }
+
+    private void UpdateOutputModeUi()
+    {
+        _updatingOutputMode = true;
+
+        try
+        {
+            NfcOutputRadio.IsChecked = _outputMode == CompositionMode.Nfc;
+            NfdOutputRadio.IsChecked = _outputMode == CompositionMode.Nfd;
+        }
+        finally
+        {
+            _updatingOutputMode = false;
+        }
     }
 
     private void BuildMarkGroups()
@@ -432,7 +473,7 @@ public partial class MainWindow : Window
         InputHintTextBlock.Text = "输入单个 Unicode 字母";
         InputHintTextBlock.Foreground = GetBrush("MutedBrush");
 
-        var result = UnicodeComposer.Compose(baseLetter, _selectedMarkIds, _catalog);
+        var result = UnicodeComposer.Compose(baseLetter, _selectedMarkIds, _catalog, _outputMode);
 
         if (!result.IsValid)
         {
@@ -508,7 +549,7 @@ public partial class MainWindow : Window
         CompositionKind.BaseOnly => "仅基础字母（尚未添加符号）",
         CompositionKind.Precomposed => "完整预组合字符",
         CompositionKind.NfcSequence => "NFC 序列（包含部分预组合）",
-        CompositionKind.RawSequence => "原始序列（严格模式，无法完整预组合）",
+        CompositionKind.NfdSequence => "NFD 序列（完全分解）",
         CompositionKind.SpecialRule => "显式例外规则",
         _ => "无效"
     };

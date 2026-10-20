@@ -154,15 +154,15 @@ public class AccentCatalogLoaderTests
     }
 
     [Fact]
-    public void StrictOutputModeIsParsed()
+    public void NfdOutputModeIsParsed()
     {
         var json = TestCatalog.MinimalJson.Replace(
             "\"mode\": \"nfc\"",
-            "\"mode\": \"precomposed-or-raw\"");
+            "\"mode\": \"nfd\"");
 
         var result = _loader.LoadFromJson(json);
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Issues));
-        Assert.Equal(CompositionMode.PrecomposedOrRawSequence, result.Catalog!.CompositionMode);
+        Assert.Equal(CompositionMode.Nfd, result.Catalog!.CompositionMode);
     }
 }

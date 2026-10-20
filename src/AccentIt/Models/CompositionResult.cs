@@ -8,7 +8,7 @@ public enum CompositionKind
     BaseOnly,
     Precomposed,
     NfcSequence,
-    RawSequence,
+    NfdSequence,
     SpecialRule
 }
 
