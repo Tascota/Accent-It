@@ -3,10 +3,360 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:AccentIt"
         mc:Ignorable="d"
-        Title="Accent It" Height="650" Width="900">
-    <Grid>
+        Title="Accent It"
+        Height="700"
+        Width="980"
+        MinHeight="600"
+        MinWidth="880"
+        WindowStartupLocation="CenterScreen"
+        Background="#F6F3ED"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Window.Resources>
+        <SolidColorBrush x:Key="InkBrush" Color="#24211C" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#6E675D" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#B45309" />
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#FBE9D7" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFDF9" />
+        <SolidColorBrush x:Key="PreviewBrush" Color="#F1ECE3" />
+        <SolidColorBrush x:Key="LineBrush" Color="#DED6C8" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#B42318" />
 
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18" />
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="HintTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="DiagnosticLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Margin" Value="0,9,0,3" />
+        </Style>
+
+        <Style x:Key="DiagnosticValueStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="MarkToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="MarkBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="#C4B8A7" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="MarkBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="MarkBorder" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="MarkBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PrimaryBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#92400E" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#78350F" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="PrimaryBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="11,6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="ChipButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24,20,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="Accent It"
+                       FontSize="29"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource InkBrush}" />
+            <TextBlock Text="为 Unicode 字母添加组合附加符号，优先输出预组合字符。"
+                       Margin="0,3,0,0"
+                       Foreground="{StaticResource MutedBrush}" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Style="{StaticResource CardStyle}"
+                Padding="18,13"
+                Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel>
+                        <TextBlock Text="基础字母"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,0,0,4" />
+                        <TextBox x:Name="BaseLetterBox"
+                                 Width="88"
+                                 Height="44"
+                                 FontSize="24"
+                                 TextAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 Padding="4,0"
+                                 Background="White"
+                                 BorderBrush="{StaticResource LineBrush}"
+                                 TextChanged="BaseLetterBox_TextChanged" />
+                    </StackPanel>
+                    <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="InputHintTextBlock"
+                                   Text="输入单个 Unicode 字母"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedBrush}" />
+                        <TextBlock x:Name="ConfigStatusTextBlock"
+                                   Text="正在读取符号目录…"
+                                   Margin="0,4,0,0"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="400" />
+                <ColumnDefinition Width="380" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource CardStyle}"
+                    Margin="0,0,14,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="组合符号" Style="{StaticResource SectionTitleStyle}" />
+                        <TextBlock Text="点击选择或取消。键盘：Tab 聚焦，空格切换。"
+                                   Style="{StaticResource HintTextStyle}" />
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Focusable="False">
+                        <StackPanel x:Name="MarkGroupsPanel" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False">
+                    <StackPanel>
+                        <TextBlock Text="预览" Style="{StaticResource SectionTitleStyle}" />
+
+                        <Border Background="{StaticResource PreviewBrush}"
+                                CornerRadius="8"
+                                Padding="16"
+                                Margin="0,0,0,10">
+                            <TextBlock x:Name="PreviewTextBlock"
+                                       Text="—"
+                                       FontFamily="Cambria Math"
+                                       FontSize="72"
+                                       Foreground="{StaticResource InkBrush}"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MinHeight="96"
+                                       TextOptions.TextFormattingMode="Ideal" />
+                        </Border>
+
+                        <TextBlock x:Name="OutputKindTextBlock"
+                                   Text="等待输入"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="OutputCodePointsTextBlock"
+                                   FontFamily="Consolas"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap" />
+
+                        <Separator Margin="0,14,0,14" Background="{StaticResource LineBrush}" />
+
+                        <TextBlock x:Name="SelectedHeaderTextBlock"
+                                   Text="已选符号（按选择顺序）"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   FontSize="13" />
+                        <WrapPanel x:Name="SelectedMarksPanel" MinHeight="28" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="UndoButton"
+                                    Content="撤销上一个"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="UndoButton_Click"
+                                    IsEnabled="False" />
+                            <Button x:Name="ClearButton"
+                                    Content="清空"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="ClearButton_Click"
+                                    IsEnabled="False"
+                                    Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <Button x:Name="CopyButton"
+                                Content="复制结果"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Click="CopyButton_Click"
+                                Margin="0,14,0,0"
+                                IsEnabled="False" />
+
+                        <Expander x:Name="DiagnosticsExpander"
+                                  Header="诊断详情"
+                                  Margin="0,16,0,0"
+                                  Foreground="{StaticResource InkBrush}"
+                                  HorizontalContentAlignment="Stretch">
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="配置来源" Style="{StaticResource DiagnosticLabelStyle}" />
+                                <TextBlock x:Name="ConfigPathTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Text="—" />
+
+                                <TextBlock Text="原始序列" Style="{StaticResource DiagnosticLabelStyle}" />
+                                <TextBlock x:Name="RawTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Text="—" />
+
+                                <TextBlock Text="NFC" Style="{StaticResource DiagnosticLabelStyle}" />
+                                <TextBlock x:Name="NfcTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Text="—" />
+
+                                <TextBlock Text="NFD" Style="{StaticResource DiagnosticLabelStyle}" />
+                                <TextBlock x:Name="NfdTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Text="—" />
+
+                                <TextBlock x:Name="AppliedRuleTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           Margin="0,9,0,0"
+                                           Visibility="Collapsed" />
+
+                                <TextBlock Text="配置问题"
+                                           Style="{StaticResource DiagnosticLabelStyle}"
+                                           Margin="0,12,0,3" />
+                                <TextBlock x:Name="IssuesTextBlock"
+                                           FontSize="11"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="没有配置问题。" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <TextBlock x:Name="StatusTextBlock"
+                   Grid.Row="3"
+                   Margin="2,11,0,0"
+                   FontSize="11"
+                   Foreground="{StaticResource MutedBrush}"
+                   TextWrapping="Wrap"
+                   Text="就绪" />
     </Grid>
 </Window>
