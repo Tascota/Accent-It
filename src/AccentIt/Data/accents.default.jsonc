@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+
+  // 位置分组的显示顺序由数组顺序决定。
+  "positions": [
+    { "id": "above", "displayName": "上方" },
+    { "id": "below", "displayName": "下方" },
+    { "id": "overlay", "displayName": "叠加" }
+  ],
+
+  // 符号的显示顺序由数组顺序决定。
+  // codePoint 必须使用 U+XXXX 形式，避免源码中出现不可见的组合字符。
+  // id 只能包含 ASCII 字母、数字、-、_、.，并且不能重复。
+  "marks": [
+    { "id": "grave", "codePoint": "U+0300", "name": "重音符", "position": "above" },
+    { "id": "acute", "codePoint": "U+0301", "name": "锐音符", "position": "above" },
+    { "id": "circumflex", "codePoint": "U+0302", "name": "抑扬符", "position": "above" },
+    { "id": "tilde", "codePoint": "U+0303", "name": "波浪符", "position": "above" },
+    { "id": "macron", "codePoint": "U+0304", "name": "长音符", "position": "above" },
+    { "id": "breve", "codePoint": "U+0306", "name": "短音符", "position": "above" },
+    { "id": "dot-above", "codePoint": "U+0307", "name": "上点符", "position": "above" },
+    { "id": "diaeresis", "codePoint": "U+0308", "name": "分音符", "position": "above" },
+    { "id": "ring-above", "codePoint": "U+030A", "name": "上圆环", "position": "above" },
+    { "id": "double-acute", "codePoint": "U+030B", "name": "双锐音符", "position": "above" },
+    { "id": "caron", "codePoint": "U+030C", "name": "倒折符", "position": "above" },
+    { "id": "horn", "codePoint": "U+031B", "name": "角符", "position": "above" },
+
+    { "id": "dot-below", "codePoint": "U+0323", "name": "下点符", "position": "below" },
+    { "id": "ring-below", "codePoint": "U+0325", "name": "下圆环", "position": "below" },
+    { "id": "comma-below", "codePoint": "U+0326", "name": "下逗号", "position": "below" },
+    { "id": "cedilla", "codePoint": "U+0327", "name": "软音符", "position": "below" },
+    { "id": "ogonek", "codePoint": "U+0328", "name": "反尾形符", "position": "below" },
+    { "id": "circumflex-below", "codePoint": "U+032D", "name": "下抑扬符", "position": "below" },
+    { "id": "breve-below", "codePoint": "U+032E", "name": "下短音符", "position": "below" },
+    { "id": "tilde-below", "codePoint": "U+0330", "name": "下波浪符", "position": "below" },
+    { "id": "macron-below", "codePoint": "U+0331", "name": "下长音符", "position": "below" },
+
+    { "id": "overlay-tilde", "codePoint": "U+0334", "name": "波浪覆盖", "position": "overlay" },
+    { "id": "overlay-short-stroke", "codePoint": "U+0335", "name": "短横覆盖", "position": "overlay" },
+    { "id": "overlay-long-stroke", "codePoint": "U+0336", "name": "长横覆盖", "position": "overlay" },
+    { "id": "overlay-short-slash", "codePoint": "U+0337", "name": "短斜线覆盖", "position": "overlay" },
+    { "id": "overlay-long-slash", "codePoint": "U+0338", "name": "长斜线覆盖", "position": "overlay" }
+  ],
+
+  "composition": {
+    // "nfc"：始终输出 NFC 规范化结果。完整预组合时得到单个字符，
+    //        否则得到 NFC 序列，可能出现“部分预组合”。
+    // "precomposed-or-raw"：只有整个组合能变成单个 Unicode 标量时使用预组合，
+    //        否则输出“基础字母 + 已选符号”的原始序列。
+    "mode": "nfc",
+
+    // 例外映射：基础字母 + 一组符号 id（顺序无关）→ 单个预组合字母。
+    // 这些规则优先于 mode。示例：
+    // {
+    //   "base": "o",
+    //   "marks": ["overlay-long-slash"],
+    //   "resultCodePoint": "U+00F8",
+    //   "note": "o + 长斜线 → ø；这是显式映射，不是 NFC 自动结果"
+    // }
+    "rules": []
+  }
+}

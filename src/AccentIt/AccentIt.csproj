@@ -8,4 +8,8 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="Data\accents.default.jsonc" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
