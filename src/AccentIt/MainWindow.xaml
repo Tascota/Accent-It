@@ -90,7 +90,6 @@
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="MarkBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                 <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                <Setter TargetName="MarkBorder" Property="BorderThickness" Value="2" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
