@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Automation;
@@ -18,6 +20,13 @@ public partial class MainWindow : Window
     private CatalogLoadResult? _loadResult;
     private CompositionResult? _lastResult;
     private CompositionMode _outputMode = CompositionMode.Nfc;
+    private SettingsStore? _settingsStore;
+    private SettingsLoadResult? _settingsLoadResult;
+    private GlobalHotkeyService? _hotkeyService;
+    private HotkeyRegistrationResult? _hotkeyRegistrationResult;
+    private CompactWindow? _compactWindow;
+    private bool _openingCompactWindow;
+    private bool _isClosing;
     private bool _uiReady;
     private bool _updatingMarkButtons;
     private bool _updatingOutputMode;
@@ -26,11 +35,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         FitWindowToWorkArea();
+        LoadSettings();
         LoadCatalog();
 
         _uiReady = true;
         BaseLetterBox.Text = "a";
         BaseLetterBox.SelectAll();
+        InitializeHotkey();
+
         Loaded += (_, _) =>
         {
             if (BaseLetterBox.IsEnabled)
@@ -134,10 +146,319 @@ public partial class MainWindow : Window
             IssuesTextBlock.Foreground = GetBrush("ErrorBrush");
         }
 
-        DiagnosticsExpander.Header = issues.Count == 0
+        UpdateDiagnosticsSummary();
+    }
+
+    private void LoadSettings()
+    {
+        try
+        {
+            _settingsStore = SettingsStore.CreateDefault();
+            _settingsLoadResult = _settingsStore.Load();
+        }
+        catch (Exception ex)
+        {
+            _settingsLoadResult = new SettingsLoadResult
+            {
+                Issues = new[]
+                {
+                    new SettingsIssue("设置", $"未预期的设置加载错误：{ex.Message}")
+                },
+                SourcePath = _settingsStore?.SettingsPath
+            };
+        }
+
+        UpdateSettingsUi();
+    }
+
+    private void InitializeHotkey()
+    {
+        if (_settingsLoadResult?.Settings is not { } settings)
+        {
+            UpdateSettingsUi();
+            return;
+        }
+
+        try
+        {
+            _hotkeyService = new GlobalHotkeyService();
+            _hotkeyService.HotkeyPressed += GlobalHotkeyService_HotkeyPressed;
+            _hotkeyRegistrationResult = _hotkeyService.Register(settings.Hotkey);
+        }
+        catch (Exception ex)
+        {
+            _hotkeyRegistrationResult = new HotkeyRegistrationResult(
+                false,
+                0,
+                $"注册全局快捷键时发生异常：{ex.Message}");
+        }
+
+        if (_hotkeyRegistrationResult is { Success: false })
+        {
+            DisposeHotkeyService();
+        }
+
+        UpdateSettingsUi();
+    }
+
+    private async void GlobalHotkeyService_HotkeyPressed(object? sender, EventArgs e)
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        // 紧凑窗口只保留一个。重复按快捷键只激活已有窗口，不重置当前输入，
+        // 也不再重新捕获目标。
+        if (_compactWindow is { } existing)
+        {
+            existing.BringToFront();
+            SetStatus("全局快捷键已触发：已切回快速输入窗口。");
+            return;
+        }
+
+        if (_openingCompactWindow)
+        {
+            // UIA 备用定位最多等待约 250 ms；期间重复触发不创建第二个窗口。
+            return;
+        }
+
+        _openingCompactWindow = true;
+
+        try
+        {
+            // 关键顺序：先在目标应用仍是前台时捕获窗口/线程/焦点，
+            // 再打开会抢走焦点的紧凑窗口。
+            var target = ForegroundWindowService.Capture();
+
+            if (target is { IsExternal: true, CaretRect: null, IsPasswordField: false })
+            {
+                // 没有 Win32 系统光标时才使用 UIA；它可能耗时，因此先捕获目标再定位。
+                var location = await CaretLocator.LocateAsync(
+                    target,
+                    TimeSpan.FromMilliseconds(250));
+
+                if (_isClosing)
+                {
+                    return;
+                }
+
+                target = ForegroundWindowService.ApplyCaretLocation(target, location);
+            }
+
+            if (_isClosing)
+            {
+                return;
+            }
+
+            // 定位期间如果另一个触发生成了窗口，只激活它。
+            if (_compactWindow is { } openedDuringCapture)
+            {
+                openedDuringCapture.BringToFront();
+                return;
+            }
+
+            OpenCompactWindow(target);
+            SetStatus(target is { HasUsableTarget: true }
+                ? $"已捕获目标：{target.DisplayName}。"
+                : "没有捕获到外部目标：紧凑窗口只会复制结果。");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"全局快捷键处理失败：{ex.Message}", isError: true);
+        }
+        finally
+        {
+            _openingCompactWindow = false;
+        }
+    }
+
+    private void OpenCompactWindow(TargetContext? target)
+    {
+        // 紧凑窗口只保留一个。重复按快捷键只激活已有窗口，不重置当前输入。
+        if (_compactWindow is { } existing)
+        {
+            existing.BringToFront();
+            return;
+        }
+
+        var window = new CompactWindow(_catalog, _loadResult, target);
+        window.Closed += CompactWindow_Closed;
+        _compactWindow = window;
+
+        try
+        {
+            window.Show();
+            window.BringToFront();
+        }
+        catch
+        {
+            if (ReferenceEquals(_compactWindow, window))
+            {
+                _compactWindow = null;
+            }
+
+            try
+            {
+                window.Close();
+            }
+            catch
+            {
+                // 窗口创建失败时不再抛出第二个异常，保留原始错误。
+            }
+
+            throw;
+        }
+    }
+
+    private void CompactWindow_Closed(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(sender, _compactWindow))
+        {
+            _compactWindow = null;
+        }
+    }
+
+    private void OpenSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = _settingsStore?.SettingsPath;
+
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            SetStatus("设置文件不存在，无法打开。", isError: true);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            SetStatus($"已打开设置文件：{path}");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"无法打开设置文件：{ex.Message}", isError: true);
+        }
+    }
+
+    private void UpdateSettingsUi()
+    {
+        var result = _settingsLoadResult;
+        var issues = result?.Issues ?? Array.Empty<SettingsIssue>();
+        var settings = result?.Settings;
+        var path = _settingsStore?.SettingsPath ?? result?.SourcePath;
+
+        SettingsPathTextBlock.Text = string.IsNullOrWhiteSpace(path) ? "未确定" : path;
+        SettingsPathTextBlock.ToolTip = SettingsPathTextBlock.Text;
+
+        if (issues.Count == 0)
+        {
+            SettingsIssuesTextBlock.Text = "没有设置问题。";
+            SettingsIssuesTextBlock.Foreground = GetBrush("MutedBrush");
+        }
+        else
+        {
+            SettingsIssuesTextBlock.Text = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                issues.Select(issue => "• " + issue));
+            SettingsIssuesTextBlock.Foreground = GetBrush("ErrorBrush");
+        }
+
+        OpenSettingsButton.IsEnabled = !string.IsNullOrWhiteSpace(path)
+                                       && File.Exists(path);
+
+        if (settings is null)
+        {
+            HotkeyStatusTextBlock.Text = "全局快捷键：设置加载失败";
+            HotkeyStatusTextBlock.Foreground = GetBrush("ErrorBrush");
+        }
+        else if (_hotkeyRegistrationResult is null)
+        {
+            HotkeyStatusTextBlock.Text = $"全局快捷键：{settings.Hotkey}（未注册）";
+            HotkeyStatusTextBlock.Foreground = GetBrush("ErrorBrush");
+        }
+        else if (!_hotkeyRegistrationResult.Success)
+        {
+            HotkeyStatusTextBlock.Text =
+                $"全局快捷键：{settings.Hotkey}（未注册：{_hotkeyRegistrationResult.Message}）";
+            HotkeyStatusTextBlock.Foreground = GetBrush("ErrorBrush");
+        }
+        else if (result?.UsedFallback == true)
+        {
+            HotkeyStatusTextBlock.Text =
+                $"全局快捷键：{settings.Hotkey}（已注册；设置文件有问题，使用默认值）";
+            HotkeyStatusTextBlock.Foreground = GetBrush("ErrorBrush");
+        }
+        else
+        {
+            HotkeyStatusTextBlock.Text = $"全局快捷键：{settings.Hotkey}（已注册）";
+            HotkeyStatusTextBlock.Foreground = GetBrush("MutedBrush");
+        }
+
+        var tooltipLines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            tooltipLines.Add("设置文件：" + path);
+        }
+
+        if (issues.Count > 0)
+        {
+            tooltipLines.AddRange(issues.Select(issue => "• " + issue));
+        }
+
+        if (_hotkeyRegistrationResult is { } registration)
+        {
+            tooltipLines.Add("注册结果：" + registration.Message);
+        }
+
+        HotkeyStatusTextBlock.ToolTip = tooltipLines.Count == 0
+            ? null
+            : string.Join(Environment.NewLine, tooltipLines);
+
+        UpdateDiagnosticsSummary();
+    }
+
+    private void UpdateDiagnosticsSummary()
+    {
+        var catalogIssues = _loadResult?.Issues.Count ?? 0;
+        var settingsIssues = _settingsLoadResult?.Issues.Count ?? 0;
+        var totalIssues = catalogIssues + settingsIssues;
+
+        DiagnosticsExpander.Header = totalIssues == 0
             ? "诊断详情"
-            : $"诊断详情（{issues.Count} 条配置提示）";
-        DiagnosticsExpander.IsExpanded = failed || issues.Count > 0;
+            : $"诊断详情（{totalIssues} 条配置提示）";
+        DiagnosticsExpander.IsExpanded = _loadResult?.Catalog is null || totalIssues > 0;
+    }
+
+    private void DisposeHotkeyService()
+    {
+        if (_hotkeyService is null)
+        {
+            return;
+        }
+
+        _hotkeyService.HotkeyPressed -= GlobalHotkeyService_HotkeyPressed;
+        _hotkeyService.Dispose();
+        _hotkeyService = null;
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        // 让尚在等待 UIA 定位的异步热键处理知道程序正在退出。
+        _isClosing = true;
+        base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (_compactWindow is { } compact)
+        {
+            _compactWindow = null;
+            compact.Close();
+        }
+
+        DisposeHotkeyService();
+        base.OnClosed(e);
     }
 
     private void OutputModeRadio_Checked(object sender, RoutedEventArgs e)

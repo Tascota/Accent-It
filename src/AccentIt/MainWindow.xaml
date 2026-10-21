@@ -224,35 +224,61 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal">
-                    <StackPanel>
-                        <TextBlock Text="基础字母"
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="基础字母"
+                               FontSize="11"
+                               Foreground="{StaticResource MutedBrush}"
+                               Margin="0,0,0,4" />
+                    <TextBox x:Name="BaseLetterBox"
+                             Width="88"
+                             Height="44"
+                             FontSize="24"
+                             TextAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="4,0"
+                             Background="White"
+                             BorderBrush="{StaticResource LineBrush}"
+                             TextChanged="BaseLetterBox_TextChanged" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Margin="16,0,0,0"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="InputHintTextBlock"
+                               Text="输入单个 Unicode 字母"
+                               FontSize="11"
+                               Foreground="{StaticResource MutedBrush}" />
+                    <TextBlock x:Name="ConfigStatusTextBlock"
+                               Text="正在读取符号目录…"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap" />
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="HotkeyStatusTextBlock"
+                                   Text="全局快捷键：读取中…"
                                    FontSize="11"
                                    Foreground="{StaticResource MutedBrush}"
-                                   Margin="0,0,0,4" />
-                        <TextBox x:Name="BaseLetterBox"
-                                 Width="88"
-                                 Height="44"
-                                 FontSize="24"
-                                 TextAlignment="Center"
-                                 VerticalContentAlignment="Center"
-                                 Padding="4,0"
-                                 Background="White"
-                                 BorderBrush="{StaticResource LineBrush}"
-                                 TextChanged="BaseLetterBox_TextChanged" />
-                    </StackPanel>
-                    <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
-                        <TextBlock x:Name="InputHintTextBlock"
-                                   Text="输入单个 Unicode 字母"
-                                   FontSize="11"
-                                   Foreground="{StaticResource MutedBrush}" />
-                        <TextBlock x:Name="ConfigStatusTextBlock"
-                                   Text="正在读取符号目录…"
-                                   Margin="0,4,0,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="HotkeyStatusTextBlock" />
+
+                        <Button x:Name="OpenSettingsButton"
+                                Grid.Column="1"
+                                Content="打开设置文件"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Padding="8,3"
+                                FontSize="11"
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                Click="OpenSettingsButton_Click"
+                                ToolTip="打开 Data/settings.jsonc；修改后重启程序生效。"
+                                AutomationProperties.AutomationId="OpenSettingsButton" />
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Border>
@@ -394,6 +420,11 @@
                                            Style="{StaticResource DiagnosticValueStyle}"
                                            Text="—" />
 
+                                <TextBlock Text="设置文件" Style="{StaticResource DiagnosticLabelStyle}" />
+                                <TextBlock x:Name="SettingsPathTextBlock"
+                                           Style="{StaticResource DiagnosticValueStyle}"
+                                           Text="—" />
+
                                 <TextBlock Text="原始序列" Style="{StaticResource DiagnosticLabelStyle}" />
                                 <TextBlock x:Name="RawTextBlock"
                                            Style="{StaticResource DiagnosticValueStyle}"
@@ -423,6 +454,15 @@
                                            Foreground="{StaticResource MutedBrush}"
                                            TextWrapping="Wrap"
                                            Text="没有配置问题。" />
+
+                                <TextBlock Text="设置问题"
+                                           Style="{StaticResource DiagnosticLabelStyle}"
+                                           Margin="0,12,0,3" />
+                                <TextBlock x:Name="SettingsIssuesTextBlock"
+                                           FontSize="11"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="没有设置问题。" />
                             </StackPanel>
                         </Expander>
                     </StackPanel>
@@ -436,6 +476,7 @@
                    FontSize="11"
                    Foreground="{StaticResource MutedBrush}"
                    TextWrapping="Wrap"
-                   Text="就绪" />
+                   Text="就绪"
+                   AutomationProperties.AutomationId="StatusTextBlock" />
     </Grid>
 </Window>

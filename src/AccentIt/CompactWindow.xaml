@@ -1,0 +1,415 @@
+<Window x:Class="AccentIt.CompactWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Accent It 快速输入"
+        Width="520"
+        Height="640"
+        MinWidth="480"
+        MinHeight="560"
+        WindowStartupLocation="Manual"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        Background="#F6F3ED"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        AutomationProperties.AutomationId="CompactWindow"
+        AutomationProperties.Name="Accent It 快速输入"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <SolidColorBrush x:Key="InkBrush" Color="#24211C" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#6E675D" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#B45309" />
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#FBE9D7" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFDF9" />
+        <SolidColorBrush x:Key="PreviewBrush" Color="#F1ECE3" />
+        <SolidColorBrush x:Key="LineBrush" Color="#DED6C8" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#B42318" />
+        <SolidColorBrush x:Key="ErrorSurfaceBrush" Color="#FEE4E2" />
+        <SolidColorBrush x:Key="WarningSurfaceBrush" Color="#FEF3C7" />
+        <SolidColorBrush x:Key="WarningBorderBrush" Color="#D97706" />
+
+        <Style x:Key="CompactCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+
+        <Style x:Key="CompactMarkToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="MarkBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="#C4B8A7" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="MarkBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="MarkBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CompactPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PrimaryBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#92400E" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#78350F" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="PrimaryBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CompactSecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="9,5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="CompactChipButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource CompactSecondaryButtonStyle}">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="FontSize" Value="10" />
+        </Style>
+
+        <Style x:Key="CompactModeRadioStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Padding" Value="7,3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="ModeBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ModeBorder" Property="BorderBrush" Value="#C4B8A7" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ModeBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="ModeBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ModeBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ModeBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="2,0,2,9">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="Accent It · 快速输入"
+                           FontSize="19"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource InkBrush}" />
+                <TextBlock x:Name="TargetHintTextBlock"
+                           Text="正在识别目标应用…"
+                           FontSize="11"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0"
+                           AutomationProperties.AutomationId="CompactTargetHint" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="1"
+                       Text="置顶窗口"
+                       FontSize="10"
+                       Foreground="{StaticResource MutedBrush}"
+                       VerticalAlignment="Top"
+                       Margin="8,4,0,0" />
+        </Grid>
+
+        <Border x:Name="CatalogBanner"
+                Grid.Row="1"
+                Visibility="Collapsed"
+                Background="{StaticResource WarningSurfaceBrush}"
+                BorderBrush="{StaticResource WarningBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="7"
+                Padding="9,6"
+                Margin="0,0,0,9">
+            <TextBlock x:Name="CatalogBannerTextBlock"
+                       FontSize="11"
+                       Foreground="{StaticResource InkBrush}"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CompactCardStyle}" Margin="0,0,0,9">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="基础字母"
+                               FontSize="10"
+                               Foreground="{StaticResource MutedBrush}"
+                               Margin="0,0,0,3" />
+                    <TextBox x:Name="BaseLetterBox"
+                             Width="62"
+                             Height="38"
+                             FontSize="22"
+                             TextAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Padding="3,0"
+                             Background="White"
+                             BorderBrush="{StaticResource LineBrush}"
+                             TextChanged="BaseLetterBox_TextChanged"
+                             AutomationProperties.AutomationId="CompactBaseLetterBox" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="1"
+                           Text="Enter 插入 · Esc 取消 · Backspace 删除最后一个符号"
+                           FontSize="10"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Margin="10,0,10,0" />
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <RadioButton x:Name="NfcOutputRadio"
+                                 Content="NFC"
+                                 GroupName="CompactOutputNormalization"
+                                 IsChecked="True"
+                                 Style="{StaticResource CompactModeRadioStyle}"
+                                 Checked="OutputModeRadio_Checked"
+                                 Margin="0,0,4,0"
+                                 AutomationProperties.Name="NFC 输出"
+                                 AutomationProperties.AutomationId="CompactNfcRadio"
+                                 ToolTip="NFC 输出（默认）：优先使用预组合字符；无法完整预组合时保留 NFC 序列。" />
+                    <RadioButton x:Name="NfdOutputRadio"
+                                 Content="NFD"
+                                 GroupName="CompactOutputNormalization"
+                                 Style="{StaticResource CompactModeRadioStyle}"
+                                 Checked="OutputModeRadio_Checked"
+                                 AutomationProperties.Name="NFD 输出"
+                                 AutomationProperties.AutomationId="CompactNfdRadio"
+                                 ToolTip="NFD 输出：完全分解为基础字母与组合符号；此模式不应用例外规则。" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
+                Background="{StaticResource PreviewBrush}"
+                CornerRadius="8"
+                Padding="12,9"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock x:Name="PreviewTextBlock"
+                           Text="—"
+                           FontFamily="Cambria Math"
+                           FontSize="48"
+                           Foreground="{StaticResource InkBrush}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           MinHeight="64"
+                           TextOptions.TextFormattingMode="Ideal"
+                           AutomationProperties.AutomationId="CompactPreviewTextBlock" />
+                <TextBlock x:Name="OutputInfoTextBlock"
+                           Text="等待输入"
+                           FontSize="10"
+                           FontFamily="Consolas"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="CompactOutputInfo" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="4" Margin="2,0,2,8">
+            <Grid>
+                <TextBlock x:Name="SelectedHeaderTextBlock"
+                           Text="已选符号（按选择顺序）"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource InkBrush}"
+                           AutomationProperties.AutomationId="CompactSelectedHeader" />
+                <TextBlock Text="Backspace 删除最后一个"
+                           FontSize="10"
+                           Foreground="{StaticResource MutedBrush}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+            </Grid>
+            <WrapPanel x:Name="SelectedMarksPanel" MinHeight="24" Margin="0,3,0,0" />
+        </StackPanel>
+
+        <Border Grid.Row="5" Style="{StaticResource CompactCardStyle}" Padding="10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                           Text="组合符号"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource InkBrush}"
+                           Margin="0,0,0,6" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False">
+                    <StackPanel x:Name="MarkGroupsPanel" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <TextBlock x:Name="StatusTextBlock"
+                   Grid.Row="6"
+                   Margin="2,8,2,8"
+                   FontSize="11"
+                   Foreground="{StaticResource MutedBrush}"
+                   TextWrapping="Wrap"
+                   Text="就绪"
+                   AutomationProperties.AutomationId="CompactStatusTextBlock" />
+
+        <Grid Grid.Row="7">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="ActionHintTextBlock"
+                       Text="Enter 插入 · Esc 取消"
+                       FontSize="10"
+                       Foreground="{StaticResource MutedBrush}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Margin="0,0,8,0"
+                       AutomationProperties.AutomationId="CompactActionHint" />
+
+            <Button x:Name="CopyResultButton"
+                    Grid.Column="1"
+                    Content="复制结果"
+                    Style="{StaticResource CompactSecondaryButtonStyle}"
+                    Click="CopyResultButton_Click"
+                    IsEnabled="False"
+                    ToolTip="只把结果写入剪贴板，不向其他应用发送粘贴。"
+                    AutomationProperties.Name="复制结果"
+                    AutomationProperties.AutomationId="CompactCopyButton" />
+
+            <Button x:Name="InsertButton"
+                    Grid.Column="2"
+                    Content="插入（Enter）"
+                    Style="{StaticResource CompactPrimaryButtonStyle}"
+                    Click="InsertButton_Click"
+                    IsEnabled="False"
+                    Margin="8,0,0,0"
+                    ToolTip="把结果写入剪贴板，发送 Ctrl+V 到打开紧凑窗口前的目标应用。"
+                    AutomationProperties.Name="插入到目标应用"
+                    AutomationProperties.AutomationId="CompactInsertButton" />
+
+            <Button x:Name="CancelButton"
+                    Grid.Column="3"
+                    Content="取消（Esc）"
+                    Style="{StaticResource CompactSecondaryButtonStyle}"
+                    Click="CancelButton_Click"
+                    Margin="8,0,0,0"
+                    AutomationProperties.AutomationId="CompactCancelButton" />
+        </Grid>
+    </Grid>
+</Window>

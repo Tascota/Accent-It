@@ -68,6 +68,9 @@ artifacts/
 # User-editable runtime catalog generated from accents.default.jsonc
 accents.jsonc
 
+# User-editable global hotkey settings created on first run
+settings.jsonc
+
 # Tye
 .tye/
 
