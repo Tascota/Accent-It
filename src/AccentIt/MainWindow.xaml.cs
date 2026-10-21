@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
 using System.Windows.Media;
 using AccentIt.Models;
 using AccentIt.Services;
@@ -25,8 +26,11 @@ public partial class MainWindow : Window
     private GlobalHotkeyService? _hotkeyService;
     private HotkeyRegistrationResult? _hotkeyRegistrationResult;
     private CompactWindow? _compactWindow;
+    private TrayIconService? _trayIcon;
     private bool _openingCompactWindow;
     private bool _isClosing;
+    private bool _exitRequested;
+    private bool _trayHintShown;
     private bool _uiReady;
     private bool _updatingMarkButtons;
     private bool _updatingOutputMode;
@@ -42,6 +46,7 @@ public partial class MainWindow : Window
         BaseLetterBox.Text = "a";
         BaseLetterBox.SelectAll();
         InitializeHotkey();
+        InitializeTrayIcon();
 
         Loaded += (_, _) =>
         {
@@ -442,8 +447,98 @@ public partial class MainWindow : Window
         _hotkeyService = null;
     }
 
+    private void InitializeTrayIcon()
+    {
+        try
+        {
+            _trayIcon = new TrayIconService();
+            _trayIcon.ShowRequested += (_, _) =>
+                Dispatcher.BeginInvoke(new Action(ShowFromTray));
+            _trayIcon.ExitRequested += (_, _) =>
+                Dispatcher.BeginInvoke(new Action(ExitFromTray));
+        }
+        catch (Exception ex)
+        {
+            // 托盘不可用时退回旧行为：关闭主窗口即退出程序。
+            _trayIcon = null;
+            SetStatus($"托盘图标创建失败：{ex.Message}。关闭主窗口将退出程序。", isError: true);
+        }
+    }
+
+    private void ShowFromTray()
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        Show();
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+        {
+            ForegroundWindowService.TryBringToForeground(handle);
+        }
+
+        if (BaseLetterBox.IsEnabled)
+        {
+            BaseLetterBox.Focus();
+        }
+    }
+
+    private void ExitFromTray()
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        // 插入流程会临时改写剪贴板并发送按键，不能在中间状态直接退出。
+        if (_compactWindow is { IsBusy: true })
+        {
+            _trayIcon?.ShowInfo(
+                "正在完成插入",
+                "请等待插入流程结束后再从托盘菜单退出。");
+            return;
+        }
+
+        _exitRequested = true;
+
+        if (_compactWindow is { } compact)
+        {
+            compact.Close();
+        }
+
+        Close();
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
+        // ShutdownMode 已改为 OnExplicitShutdown，关闭按钮默认只隐藏窗口。
+        // 托盘菜单触发 ExitFromTray 后，_exitRequested 为 true，才真正退出。
+        if (!_exitRequested && _trayIcon is not null)
+        {
+            e.Cancel = true;
+            Hide();
+
+            if (!_trayHintShown)
+            {
+                _trayHintShown = true;
+                _trayIcon.ShowInfo(
+                    "Accent It 仍在运行",
+                    "全局快捷键仍然可用。单击托盘图标打开主窗口，右键托盘菜单可以退出。");
+            }
+
+            return;
+        }
+
         // 让尚在等待 UIA 定位的异步热键处理知道程序正在退出。
         _isClosing = true;
         base.OnClosing(e);
@@ -457,8 +552,13 @@ public partial class MainWindow : Window
             compact.Close();
         }
 
+        _trayIcon?.Dispose();
+        _trayIcon = null;
         DisposeHotkeyService();
         base.OnClosed(e);
+
+        // 托盘模式下没有主窗口时程序仍会运行，因此必须显式结束应用。
+        Application.Current.Shutdown();
     }
 
     private void OutputModeRadio_Checked(object sender, RoutedEventArgs e)

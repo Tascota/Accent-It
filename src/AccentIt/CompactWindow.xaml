@@ -264,7 +264,7 @@
                 </StackPanel>
 
                 <TextBlock Grid.Column="1"
-                           Text="Enter 插入 · Esc 取消 · Backspace 删除最后一个符号"
+                           Text="Enter 插入 · Esc 退出 · Backspace 删除最后一个符号"
                            FontSize="10"
                            Foreground="{StaticResource MutedBrush}"
                            TextWrapping="Wrap"

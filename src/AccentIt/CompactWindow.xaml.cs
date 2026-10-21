@@ -24,9 +24,9 @@ public partial class CompactWindow : Window
     private bool _updatingMarkButtons;
     private bool _updatingOutputMode;
     private bool _busy;
-    private bool _pasteSent;
+    private bool _hasInserted;
 
-    // 插入后如果 Windows 拒绝把紧凑窗口切回前台，Esc/Enter 会落到目标应用。
+    // 窗口不在前台时，Esc/Enter 会落到目标应用。
     // 此时按钮文字不显示快捷键提示，等窗口真正被激活后再恢复。
     private bool _compactKeysUnavailable;
 
@@ -38,6 +38,9 @@ public partial class CompactWindow : Window
     private DataObject? _ourClipboardData;
     private long _ourClipboardSequence;
     private string? _clipboardWarning;
+
+    /// <summary>插入流程进行中时，主窗口不能直接退出，否则剪贴板可能停在临时状态。</summary>
+    public bool IsBusy => _busy;
 
     public CompactWindow(
         AccentCatalog? catalog,
@@ -95,7 +98,7 @@ public partial class CompactWindow : Window
         _compactKeysUnavailable = !ForegroundWindowService.IsForeground(helper.Handle);
         UpdateActionState();
 
-        if (_pasteSent || _busy || !BaseLetterBox.IsEnabled)
+        if (_busy || !BaseLetterBox.IsEnabled)
         {
             CancelButton.Focus();
         }
@@ -174,23 +177,6 @@ public partial class CompactWindow : Window
         ApplyPhysicalPosition(handle, position);
     }
 
-    private void MoveToCorner()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        var size = PopupPlacement.GetWindowSize(handle);
-
-        if (handle == IntPtr.Zero || size is null)
-        {
-            return;
-        }
-
-        var position = PopupPlacement.ComputeCorner(
-            _target,
-            size.Value.Width,
-            size.Value.Height);
-        ApplyPhysicalPosition(handle, position);
-    }
-
     /// <summary>
     /// 先用 WPF 的 Left/Top 跟随位置（减少显示时的跳动），再用 SetWindowPos
     /// 按物理像素做最终定位。WPF 的坐标单位是 DIP，不能直接拿来和屏幕像素比较。
@@ -218,7 +204,7 @@ public partial class CompactWindow : Window
         var helper = new WindowInteropHelper(this);
         ForegroundWindowService.TryBringToForeground(helper.Handle);
 
-        if (_pasteSent || _busy || !BaseLetterBox.IsEnabled)
+        if (_busy || !BaseLetterBox.IsEnabled)
         {
             CancelButton.Focus();
             return;
@@ -238,6 +224,31 @@ public partial class CompactWindow : Window
         UpdateOutputModeUi();
         UpdateSelectionUi();
         UpdatePreview();
+    }
+
+    /// <summary>
+    /// 插入成功后清空当前字母和符号，让窗口可以直接开始下一次组合。
+    /// 不重置 NFC/NFD 选择，也不改动目标或剪贴板备份。
+    /// </summary>
+    private void ClearInputAfterInsert()
+    {
+        _uiReady = false;
+
+        try
+        {
+            _selectedMarkIds.Clear();
+            BaseLetterBox.Text = string.Empty;
+        }
+        finally
+        {
+            _uiReady = true;
+        }
+
+        _lastResult = null;
+        PreviewTextBlock.Text = "—";
+        OutputInfoTextBlock.Text = "等待输入";
+        UpdateSelectionUi();
+        UpdateActionState();
     }
 
     private void UpdateCatalogBanner()
@@ -400,7 +411,6 @@ public partial class CompactWindow : Window
     {
         if (_updatingMarkButtons
             || _busy
-            || _pasteSent
             || _catalog is null
             || sender is not ToggleButton button
             || button.Tag is not string markId)
@@ -427,7 +437,6 @@ public partial class CompactWindow : Window
     private void RemoveSelectedMark_Click(object sender, RoutedEventArgs e)
     {
         if (_busy
-            || _pasteSent
             || sender is not Button button
             || button.Tag is not string markId)
         {
@@ -601,12 +610,12 @@ public partial class CompactWindow : Window
 
     /// <summary>
     /// 根据当前状态集中更新按钮和编辑区域，避免多个代码路径各自设置 IsEnabled
-    /// 造成“已插入后还能继续编辑”或“忙碌时可以关闭窗口”的不一致。
+    /// 造成“忙碌时还能编辑”或“忙碌时可以关闭窗口”的不一致。
     /// </summary>
     private void UpdateActionState()
     {
         var hasResult = _lastResult is { IsValid: true };
-        var editingEnabled = _catalog is not null && !_busy && !_pasteSent;
+        var editingEnabled = _catalog is not null && !_busy;
 
         BaseLetterBox.IsEnabled = editingEnabled;
         NfcOutputRadio.IsEnabled = editingEnabled;
@@ -615,37 +624,29 @@ public partial class CompactWindow : Window
         SelectedMarksPanel.IsEnabled = editingEnabled;
 
         CopyResultButton.IsEnabled = hasResult && !_busy;
-        InsertButton.IsEnabled = _pasteSent
-            ? !_busy
-            : hasResult && CanInsert && !_busy;
+        InsertButton.IsEnabled = hasResult && CanInsert && !_busy;
 
         var showKeyHints = !_compactKeysUnavailable;
-        InsertButton.Content = _pasteSent
-            ? (showKeyHints ? "完成（Enter）" : "完成")
-            : "插入（Enter）";
-        CancelButton.Content = _pasteSent
+        InsertButton.Content = showKeyHints ? "插入（Enter）" : "插入";
+        CancelButton.Content = _hasInserted
             ? (showKeyHints ? "关闭（Esc）" : "关闭")
-            : "取消（Esc）";
+            : (showKeyHints ? "取消（Esc）" : "取消");
 
         if (_busy)
         {
             ActionHintTextBlock.Text = "正在插入，请稍候…";
         }
-        else if (_pasteSent && _compactKeysUnavailable)
+        else if (_compactKeysUnavailable)
         {
-            ActionHintTextBlock.Text = "已插入 · 窗口未在前台，点击按钮关闭";
-        }
-        else if (_pasteSent && _keepClipboard)
-        {
-            ActionHintTextBlock.Text = "已插入并复制 · Enter/Esc 关闭";
-        }
-        else if (_pasteSent)
-        {
-            ActionHintTextBlock.Text = "已插入 · Enter/Esc 关闭";
+            ActionHintTextBlock.Text = "窗口未在前台 · 按全局快捷键切回";
         }
         else if (!CanInsert)
         {
             ActionHintTextBlock.Text = "Enter 只复制";
+        }
+        else if (_hasInserted)
+        {
+            ActionHintTextBlock.Text = "可继续输入 · Enter 插入 · Esc 关闭";
         }
         else
         {
@@ -679,11 +680,7 @@ public partial class CompactWindow : Window
 
                 e.Handled = true;
 
-                if (_pasteSent)
-                {
-                    Close();
-                }
-                else if (CanInsert)
+                if (CanInsert)
                 {
                     _ = InsertResultAsync();
                 }
@@ -694,7 +691,7 @@ public partial class CompactWindow : Window
 
                 return;
 
-            case Key.Back when Keyboard.FocusedElement is not TextBoxBase && !_pasteSent && !_busy:
+            case Key.Back when Keyboard.FocusedElement is not TextBoxBase && !_busy:
                 e.Handled = true;
                 RemoveLastMark();
                 return;
@@ -719,15 +716,7 @@ public partial class CompactWindow : Window
     }
 
     private void InsertButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_pasteSent)
-        {
-            Close();
-            return;
-        }
-
-        _ = InsertResultAsync();
-    }
+        => _ = InsertResultAsync();
 
     private void CopyResultButton_Click(object sender, RoutedEventArgs e)
         => CopyResult();
@@ -761,7 +750,8 @@ public partial class CompactWindow : Window
     /// <summary>
     /// 插入流程：验证目标 → 备份剪贴板 → 写入结果 → 恢复目标焦点 →
     /// 等待修饰键松开 → 确认剪贴板未变 → SendInput Ctrl+V。
-    /// 任何一步失败都不重试、不自动关闭，保留结果供手动粘贴。
+    /// 任何一步失败都不重试、不自动关闭，保留结果供手动粘贴；
+    /// 成功后清空输入，方便在同一个目标里连续插入。
     /// </summary>
     private async Task InsertResultAsync()
     {
@@ -770,16 +760,12 @@ public partial class CompactWindow : Window
             return;
         }
 
-        if (_pasteSent)
-        {
-            Close();
-            return;
-        }
-
         if (_lastResult is not { IsValid: true } result)
         {
             return;
         }
+
+        var inserted = false;
 
         if (!CanInsert)
         {
@@ -877,29 +863,27 @@ public partial class CompactWindow : Window
                 return;
             }
 
-            _pasteSent = true;
+            inserted = true;
+            _hasInserted = true;
 
             // 只表示 Ctrl+V 已发送，不能证明目标应用真的接受了文本。
             await Task.Delay(400);
             var targetWasForeground = ForegroundWindowService.IsForeground(_target.WindowHandle);
 
-            MoveToCorner();
             var reactivated = await TryReturnToCompactAsync();
             _compactKeysUnavailable = !reactivated;
-            UpdateActionState();
             var clipboardNote = BuildClipboardNote();
             var visibilityNote = reactivated
                 ? string.Empty
-                : " 快速输入窗口未能自动回到前台；可按全局快捷键切回，或点“完成”。";
-            var foregroundNote = targetWasForeground
-                ? " 若目标中没有出现文本，请点“复制结果”后手动粘贴。"
-                : " 目标窗口在粘贴后未保持前台；若没有出现文本，请点“复制结果”后手动粘贴。";
+                : " 快速输入窗口未能自动回到前台；按全局快捷键切回后可继续输入。";
+            var recoveryNote = " 若目标中没有出现文本，可在目标中手动按 Ctrl+V；剪贴板中仍保留本次结果。";
 
             SetStatus(
                 (targetWasForeground
                     ? "已向目标发送 Ctrl+V，但无法确认目标是否真的显示文本。"
                     : "已尝试发送 Ctrl+V，但目标窗口未保持前台。")
-                + foregroundNote
+                + " 可继续输入下一个字母；Esc 关闭。"
+                + recoveryNote
                 + visibilityNote
                 + clipboardNote,
                 isError: !targetWasForeground);
@@ -907,14 +891,31 @@ public partial class CompactWindow : Window
         catch (Exception ex)
         {
             await TryReturnToCompactAsync();
+            var recoveryNote = inserted
+                ? " 剪贴板中仍保留本次结果，可在目标中手动按 Ctrl+V。"
+                : " 可复制结果后手动粘贴。";
             SetStatus(
-                $"插入时发生异常：{ex.Message} 未确认目标是否收到粘贴，可复制结果后手动粘贴。",
+                $"插入时发生异常：{ex.Message} 未确认目标是否收到粘贴。{recoveryNote}",
                 isError: true);
         }
         finally
         {
             _busy = false;
-            UpdateActionState();
+
+            if (inserted)
+            {
+                ClearInputAfterInsert();
+            }
+            else
+            {
+                UpdateActionState();
+            }
+
+            // 成功后输入框已经清空；等 _busy 解除、控件重新启用后再把焦点放回去。
+            if (inserted && !_compactKeysUnavailable && IsActive && BaseLetterBox.IsEnabled)
+            {
+                BaseLetterBox.Focus();
+            }
         }
     }
 
