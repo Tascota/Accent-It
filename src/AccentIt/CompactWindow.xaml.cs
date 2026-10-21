@@ -39,13 +39,21 @@ public partial class CompactWindow : Window
     private long _ourClipboardSequence;
     private string? _clipboardWarning;
 
+    // 切换到完整编辑器时，主窗口会主动处理焦点；关闭紧凑窗口时
+    // 不应再把焦点还给原来的目标应用。
+    private bool _suppressTargetFocusRestore;
+
     /// <summary>插入流程进行中时，主窗口不能直接退出，否则剪贴板可能停在临时状态。</summary>
     public bool IsBusy => _busy;
+
+    /// <summary>用户要求切换到完整编辑器；由主窗口负责显示和状态传递。</summary>
+    public event EventHandler? SwitchToMainRequested;
 
     public CompactWindow(
         AccentCatalog? catalog,
         CatalogLoadResult? loadResult,
-        TargetContext? target)
+        TargetContext? target,
+        CompositionSnapshot? initial = null)
     {
         _catalog = catalog;
         _loadResult = loadResult;
@@ -55,13 +63,21 @@ public partial class CompactWindow : Window
 
         _outputMode = _catalog?.CompositionMode ?? CompositionMode.Nfc;
         UpdateOutputModeUi();
-        BuildMarkGroups();
+        BuildMarkLayout();
         UpdateCatalogBanner();
         UpdateTargetUi();
         ApplyCatalogAvailability();
 
         _uiReady = true;
-        ResetComposition();
+
+        if (initial is null)
+        {
+            ResetComposition();
+        }
+        else
+        {
+            ApplyCompositionSnapshot(initial);
+        }
 
         // 在 Show 之前创建 HWND，才能用 SetWindowPos 按物理像素放置；
         // 否则 WPF 要等窗口显示后才有原生句柄。
@@ -226,6 +242,52 @@ public partial class CompactWindow : Window
         UpdatePreview();
     }
 
+    /// <summary>读取当前输入，供“完整编辑器（F2）”切换时带过去。</summary>
+    public CompositionSnapshot CreateSnapshot()
+        => new(BaseLetterBox.Text, _selectedMarkIds.ToArray(), _outputMode);
+
+    /// <summary>
+    /// 应用从完整编辑器带过来的输入。快照里的符号 id 可能已被用户
+    /// 从目录中删除，因此只保留当前目录仍能识别的符号。
+    /// </summary>
+    private void ApplyCompositionSnapshot(CompositionSnapshot snapshot)
+    {
+        _uiReady = false;
+
+        try
+        {
+            _selectedMarkIds.Clear();
+
+            if (_catalog is not null)
+            {
+                foreach (var markId in snapshot.MarkIds.Distinct(StringComparer.Ordinal))
+                {
+                    if (_catalog.FindMark(markId) is not null)
+                    {
+                        _selectedMarkIds.Add(markId);
+                    }
+                }
+            }
+
+            BaseLetterBox.Text = snapshot.BaseLetterText ?? string.Empty;
+            BaseLetterBox.SelectAll();
+
+            _outputMode = snapshot.OutputMode;
+            UpdateOutputModeUi();
+        }
+        finally
+        {
+            _uiReady = true;
+        }
+
+        UpdateSelectionUi();
+        UpdatePreview();
+    }
+
+    /// <summary>切换回完整编辑器时，由主窗口接管焦点。</summary>
+    public void SuppressTargetFocusRestore()
+        => _suppressTargetFocusRestore = true;
+
     /// <summary>
     /// 插入成功后清空当前字母和符号，让窗口可以直接开始下一次组合。
     /// 不重置 NFC/NFD 选择，也不改动目标或剪贴板备份。
@@ -246,7 +308,6 @@ public partial class CompactWindow : Window
 
         _lastResult = null;
         PreviewTextBlock.Text = "—";
-        OutputInfoTextBlock.Text = "等待输入";
         UpdateSelectionUi();
         UpdateActionState();
     }
@@ -285,121 +346,94 @@ public partial class CompactWindow : Window
         UpdateActionState();
     }
 
-    private void BuildMarkGroups()
+    private void BuildMarkLayout()
     {
-        MarkGroupsPanel.Children.Clear();
+        AboveMarksPanel.Children.Clear();
+        BelowMarksPanel.Children.Clear();
+        LeftMarksPanel.Children.Clear();
+        RightMarksPanel.Children.Clear();
         _markButtons.Clear();
 
         if (_catalog is null)
         {
-            MarkGroupsPanel.Children.Add(new TextBlock
+            AboveMarksPanel.Children.Add(new TextBlock
             {
                 Text = "符号目录未加载。",
-                FontSize = 11,
+                FontSize = 10,
                 FontStyle = FontStyles.Italic,
-                Foreground = GetBrush("ErrorBrush")
+                Foreground = GetBrush("ErrorBrush"),
+                Margin = new Thickness(2)
             });
             return;
         }
 
-        foreach (var position in _catalog.Positions)
+        var layout = MarkLayout.Create(_catalog);
+
+        foreach (var mark in layout.Above)
         {
-            var marks = _catalog.GetMarksForPosition(position.Id);
-            var group = new StackPanel
-            {
-                Margin = new Thickness(0, 0, 0, 9)
-            };
+            AboveMarksPanel.Children.Add(CreateMarkButton(mark));
+        }
 
-            group.Children.Add(new TextBlock
-            {
-                Text = position.DisplayName,
-                FontSize = 12,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = GetBrush("InkBrush"),
-                Margin = new Thickness(0, 0, 0, 5)
-            });
+        foreach (var mark in layout.Below)
+        {
+            BelowMarksPanel.Children.Add(CreateMarkButton(mark));
+        }
 
-            if (marks.Count == 0)
-            {
-                group.Children.Add(new TextBlock
-                {
-                    Text = "这个位置还没有配置符号。",
-                    FontSize = 10,
-                    FontStyle = FontStyles.Italic,
-                    Foreground = GetBrush("MutedBrush")
-                });
-            }
-            else
-            {
-                var wrap = new WrapPanel();
+        foreach (var mark in layout.Left)
+        {
+            LeftMarksPanel.Children.Add(CreateMarkButton(mark));
+        }
 
-                foreach (var mark in marks)
-                {
-                    wrap.Children.Add(CreateMarkButton(mark, position));
-                }
-
-                group.Children.Add(wrap);
-            }
-
-            MarkGroupsPanel.Children.Add(group);
+        foreach (var mark in layout.Right)
+        {
+            RightMarksPanel.Children.Add(CreateMarkButton(mark));
         }
     }
 
-    private ToggleButton CreateMarkButton(AccentMark mark, AccentPosition position)
+    private ToggleButton CreateMarkButton(AccentMark mark)
     {
+        var positionName = GetPositionName(mark.PositionId);
+
         var glyph = new TextBlock
         {
             Text = char.ConvertFromUtf32(0x25CC) + mark.Symbol.ToString(),
             FontFamily = new FontFamily("Cambria Math"),
-            FontSize = 17,
+            FontSize = 16,
             Foreground = GetBrush("InkBrush"),
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 25
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
-        var name = new TextBlock
-        {
-            Text = mark.Name,
-            FontSize = 11,
-            Foreground = GetBrush("InkBrush"),
-            TextWrapping = TextWrapping.Wrap,
-            MaxWidth = 96,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 0, 0)
-        };
-
-        var content = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
-        content.Children.Add(glyph);
-        content.Children.Add(name);
-
-        var toolTip = $"{mark.Name}（{position.DisplayName}）\n{FormatCodePoint(mark.Symbol.Value)}";
+        var toolTip = $"{mark.Name}（{positionName}）\n{FormatCodePoint(mark.Symbol.Value)}";
 
         if (!string.IsNullOrWhiteSpace(mark.Description))
         {
             toolTip += $"\n{mark.Description}";
         }
 
-        toolTip += "\n\n点击选择或取消；Tab 聚焦后按空格也可以切换。";
+        toolTip += "\n\n点击选择或取消；Backspace 删除最后一个符号。";
 
         var button = new ToggleButton
         {
-            Content = content,
+            Content = glyph,
             Style = (Style)FindResource("CompactMarkToggleStyle"),
             Tag = mark.Id,
             ToolTip = toolTip,
             IsChecked = _selectedMarkIds.Contains(mark.Id)
         };
 
-        AutomationProperties.SetName(button, $"{position.DisplayName}：{mark.Name}");
+        AutomationProperties.SetName(button, $"{positionName}：{mark.Name}");
         AutomationProperties.SetAutomationId(button, $"compact-mark-{mark.Id}");
         button.Checked += MarkButton_Checked;
         button.Unchecked += MarkButton_Unchecked;
         _markButtons[mark.Id] = button;
         return button;
     }
+
+    private string GetPositionName(string positionId)
+        => _catalog?.Positions
+            .FirstOrDefault(position => string.Equals(position.Id, positionId, StringComparison.Ordinal))
+            ?.DisplayName ?? positionId;
 
     private void MarkButton_Checked(object sender, RoutedEventArgs e)
         => ApplyMarkToggle(sender, isSelected: true);
@@ -434,22 +468,9 @@ public partial class CompactWindow : Window
         UpdatePreview();
     }
 
-    private void RemoveSelectedMark_Click(object sender, RoutedEventArgs e)
-    {
-        if (_busy
-            || sender is not Button button
-            || button.Tag is not string markId)
-        {
-            return;
-        }
-
-        _selectedMarkIds.Remove(markId);
-        UpdateSelectionUi();
-        UpdatePreview();
-    }
-
     private void UpdateSelectionUi()
     {
+        // 紧凑窗口不再显示已选符号列表；按钮高亮和中央预览就是选中状态。
         _updatingMarkButtons = true;
 
         try
@@ -462,59 +483,6 @@ public partial class CompactWindow : Window
         finally
         {
             _updatingMarkButtons = false;
-        }
-
-        SelectedMarksPanel.Children.Clear();
-
-        if (_catalog is null)
-        {
-            SelectedHeaderTextBlock.Text = "已选符号";
-            SelectedMarksPanel.Children.Add(new TextBlock
-            {
-                Text = "符号目录未加载。",
-                FontSize = 10,
-                FontStyle = FontStyles.Italic,
-                Foreground = GetBrush("ErrorBrush")
-            });
-            return;
-        }
-
-        if (_selectedMarkIds.Count == 0)
-        {
-            SelectedHeaderTextBlock.Text = "已选符号（按选择顺序）";
-            SelectedMarksPanel.Children.Add(new TextBlock
-            {
-                Text = "尚未选择符号。",
-                FontSize = 10,
-                FontStyle = FontStyles.Italic,
-                Foreground = GetBrush("MutedBrush"),
-                Margin = new Thickness(0, 2, 0, 0)
-            });
-            return;
-        }
-
-        SelectedHeaderTextBlock.Text = $"已选符号（{_selectedMarkIds.Count} 个，按选择顺序）";
-
-        for (var i = 0; i < _selectedMarkIds.Count; i++)
-        {
-            var mark = _catalog.FindMark(_selectedMarkIds[i]);
-
-            if (mark is null)
-            {
-                continue;
-            }
-
-            var chip = new Button
-            {
-                Content = $"{i + 1}. {mark.Name}  ×",
-                Tag = mark.Id,
-                Style = (Style)FindResource("CompactChipButtonStyle"),
-                ToolTip = $"移除 {mark.Name}"
-            };
-            AutomationProperties.SetName(chip, $"移除 {mark.Name}");
-            AutomationProperties.SetAutomationId(chip, $"compact-remove-{mark.Id}");
-            chip.Click += RemoveSelectedMark_Click;
-            SelectedMarksPanel.Children.Add(chip);
         }
     }
 
@@ -570,7 +538,6 @@ public partial class CompactWindow : Window
         if (_catalog is null)
         {
             PreviewTextBlock.Text = "—";
-            OutputInfoTextBlock.Text = "符号目录未加载";
             SetStatus("符号目录加载失败，无法组合。", isError: true);
             UpdateActionState();
             return;
@@ -579,7 +546,6 @@ public partial class CompactWindow : Window
         if (!UnicodeComposer.TryParseBaseLetter(BaseLetterBox.Text, out var baseLetter, out var inputError))
         {
             PreviewTextBlock.Text = "—";
-            OutputInfoTextBlock.Text = inputError;
             SetStatus(inputError, isError: true);
             UpdateActionState();
             return;
@@ -590,7 +556,6 @@ public partial class CompactWindow : Window
         if (!result.IsValid)
         {
             PreviewTextBlock.Text = "—";
-            OutputInfoTextBlock.Text = result.Error ?? "组合失败。";
             SetStatus(result.Error ?? "组合失败。", isError: true);
             UpdateActionState();
             return;
@@ -598,12 +563,13 @@ public partial class CompactWindow : Window
 
         _lastResult = result;
         PreviewTextBlock.Text = result.Output;
-        OutputInfoTextBlock.Text = $"{DescribeKind(result.Kind)} · {FormatCodePoints(result.CodePoints)}";
 
         var enterHint = CanInsert ? "Enter 插入" : "Enter 复制";
-        SetStatus(_selectedMarkIds.Count == 0
-            ? $"输入字母后选择符号；{enterHint}。"
-            : $"已选择 {_selectedMarkIds.Count} 个符号；{enterHint}。");
+        var selection = _selectedMarkIds.Count == 0
+            ? "尚未选择符号"
+            : $"已选 {_selectedMarkIds.Count} 个符号";
+
+        SetStatus($"{DescribeKind(result.Kind)} · {selection} · {enterHint}。");
 
         UpdateActionState();
     }
@@ -620,8 +586,11 @@ public partial class CompactWindow : Window
         BaseLetterBox.IsEnabled = editingEnabled;
         NfcOutputRadio.IsEnabled = editingEnabled;
         NfdOutputRadio.IsEnabled = editingEnabled;
-        MarkGroupsPanel.IsEnabled = editingEnabled;
-        SelectedMarksPanel.IsEnabled = editingEnabled;
+        AboveMarksPanel.IsEnabled = editingEnabled;
+        BelowMarksPanel.IsEnabled = editingEnabled;
+        LeftMarksPanel.IsEnabled = editingEnabled;
+        RightMarksPanel.IsEnabled = editingEnabled;
+        SwitchToEditorButton.IsEnabled = !_busy;
 
         CopyResultButton.IsEnabled = hasResult && !_busy;
         InsertButton.IsEnabled = hasResult && CanInsert && !_busy;
@@ -660,6 +629,16 @@ public partial class CompactWindow : Window
     {
         switch (e.Key)
         {
+            case Key.F2:
+                e.Handled = true;
+
+                if (!_busy)
+                {
+                    RequestSwitchToEditor();
+                }
+
+                return;
+
             case Key.Escape:
                 if (_busy)
                 {
@@ -1013,6 +992,20 @@ public partial class CompactWindow : Window
         return isForeground;
     }
 
+    private void SwitchToEditorButton_Click(object sender, RoutedEventArgs e)
+        => RequestSwitchToEditor();
+
+    private void RequestSwitchToEditor()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        // 由主窗口负责关闭紧凑窗口、显示完整编辑器并接收当前输入。
+        SwitchToMainRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         if (!_busy)
@@ -1025,6 +1018,9 @@ public partial class CompactWindow : Window
     {
         StatusTextBlock.Text = message;
         StatusTextBlock.Foreground = GetBrush(isError ? "ErrorBrush" : "MutedBrush");
+
+        // 紧凑窗口能显示的状态行有限；把完整文字放到悬停提示里，避免长错误被截断后无法查看。
+        StatusTextBlock.ToolTip = message;
     }
 
     private Brush GetBrush(string key) => (Brush)FindResource(key);
@@ -1086,7 +1082,11 @@ public partial class CompactWindow : Window
         }
 
         // 取消/关闭后尽力把输入焦点还给原应用；目标已关闭时安全放弃。
-        ForegroundWindowService.TryRestoreTargetFocus(_target);
+        // 切换到完整编辑器时由主窗口接管焦点，不能把前台还给目标应用。
+        if (!_suppressTargetFocusRestore)
+        {
+            ForegroundWindowService.TryRestoreTargetFocus(_target);
+        }
 
         base.OnClosed(e);
     }

@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using AccentIt.Models;
@@ -28,6 +29,10 @@ public partial class MainWindow : Window
     private CompactWindow? _compactWindow;
     private TrayIconService? _trayIcon;
     private bool _openingCompactWindow;
+
+    // 从主窗口的“快速输入”进入时，关闭紧凑窗口应回到主窗口；
+    // 用全局快捷键直接打开的紧凑窗口关闭后仍留在原目标应用。
+    private bool _compactOpenedFromMain;
     private bool _isClosing;
     private bool _exitRequested;
     private bool _trayHintShown;
@@ -278,18 +283,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OpenCompactWindow(TargetContext? target)
+    private void OpenCompactWindow(
+        TargetContext? target,
+        CompositionSnapshot? initial = null,
+        bool returnToMain = false)
     {
         // 紧凑窗口只保留一个。重复按快捷键只激活已有窗口，不重置当前输入。
         if (_compactWindow is { } existing)
         {
+            _compactOpenedFromMain |= returnToMain;
             existing.BringToFront();
             return;
         }
 
-        var window = new CompactWindow(_catalog, _loadResult, target);
+        var window = new CompactWindow(_catalog, _loadResult, target, initial);
+        window.SwitchToMainRequested += CompactWindow_SwitchToMainRequested;
         window.Closed += CompactWindow_Closed;
         _compactWindow = window;
+        _compactOpenedFromMain = returnToMain;
 
         try
         {
@@ -301,6 +312,7 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_compactWindow, window))
             {
                 _compactWindow = null;
+                _compactOpenedFromMain = false;
             }
 
             try
@@ -318,10 +330,135 @@ public partial class MainWindow : Window
 
     private void CompactWindow_Closed(object? sender, EventArgs e)
     {
-        if (ReferenceEquals(sender, _compactWindow))
+        if (!ReferenceEquals(sender, _compactWindow))
         {
-            _compactWindow = null;
+            return;
         }
+
+        _compactWindow = null;
+
+        if (_compactOpenedFromMain && !_isClosing)
+        {
+            _compactOpenedFromMain = false;
+
+            // 等关闭流程结束后再显示主窗口，避免在 Closed 事件里重入。
+            Dispatcher.BeginInvoke(new Action(ShowFromTray));
+            return;
+        }
+
+        _compactOpenedFromMain = false;
+    }
+
+    private void CompactWindow_SwitchToMainRequested(object? sender, EventArgs e)
+    {
+        if (_isClosing
+            || sender is not CompactWindow compact
+            || !ReferenceEquals(compact, _compactWindow)
+            || compact.IsBusy)
+        {
+            return;
+        }
+
+        var snapshot = compact.CreateSnapshot();
+
+        // OnClosed 不应把前台焦点还给原目标应用；主窗口马上接管。
+        compact.SuppressTargetFocusRestore();
+        _compactOpenedFromMain = false;
+
+        compact.Close();
+
+        if (compact.IsVisible)
+        {
+            // 关闭被拒绝时保持原状，不要把主窗口和紧凑窗口同时显示出来。
+            compact.BringToFront();
+            _compactOpenedFromMain = true;
+            return;
+        }
+
+        ShowFromTray();
+        ApplyCompositionSnapshot(snapshot);
+        SetStatus("已切换到完整编辑器；当前输入已保留。");
+    }
+
+    private void QuickInputButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        if (_compactWindow is { IsBusy: true })
+        {
+            SetStatus("快速输入窗口正在插入，请稍候。", isError: true);
+            return;
+        }
+
+        var snapshot = CreateCompositionSnapshot();
+        Hide();
+
+        try
+        {
+            // 从主窗口进入时没有外部目标，Enter 只复制结果；
+            // 需要向其他应用插入时，仍从目标应用里按全局快捷键打开。
+            OpenCompactWindow(null, snapshot, returnToMain: true);
+        }
+        catch (Exception ex)
+        {
+            ShowFromTray();
+            SetStatus($"无法打开快速输入窗口：{ex.Message}", isError: true);
+        }
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F2 || _isClosing)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        QuickInputButton_Click(this, new RoutedEventArgs());
+    }
+
+    private CompositionSnapshot CreateCompositionSnapshot()
+        => new(BaseLetterBox.Text, _selectedMarkIds.ToArray(), _outputMode);
+
+    /// <summary>
+    /// 接收紧凑窗口带回来的输入。目录里已经不存在的符号会被忽略，
+    /// 和紧凑窗口使用同一套规则，避免切换后出现无法组合的选中项。
+    /// </summary>
+    private void ApplyCompositionSnapshot(CompositionSnapshot snapshot)
+    {
+        _uiReady = false;
+
+        try
+        {
+            _selectedMarkIds.Clear();
+
+            if (_catalog is not null)
+            {
+                foreach (var markId in snapshot.MarkIds.Distinct(StringComparer.Ordinal))
+                {
+                    if (_catalog.FindMark(markId) is not null)
+                    {
+                        _selectedMarkIds.Add(markId);
+                    }
+                }
+            }
+
+            BaseLetterBox.Text = snapshot.BaseLetterText ?? string.Empty;
+            BaseLetterBox.SelectAll();
+
+            _outputMode = snapshot.OutputMode;
+            UpdateOutputModeUi();
+        }
+        finally
+        {
+            _uiReady = true;
+        }
+
+        UpdateSelectionUi();
+        UpdatePreview();
     }
 
     private void OpenSettingsButton_Click(object sender, RoutedEventArgs e)
@@ -510,6 +647,9 @@ public partial class MainWindow : Window
         }
 
         _exitRequested = true;
+
+        // 退出流程中紧凑窗口的 Closed 事件不应再排队显示主窗口。
+        _compactOpenedFromMain = false;
 
         if (_compactWindow is { } compact)
         {

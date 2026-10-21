@@ -14,7 +14,8 @@
         FontFamily="Segoe UI"
         FontSize="13"
         UseLayoutRounding="True"
-        SnapsToDevicePixels="True">
+        SnapsToDevicePixels="True"
+        PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>
         <SolidColorBrush x:Key="InkBrush" Color="#24211C" />
         <SolidColorBrush x:Key="MutedBrush" Color="#6E675D" />
@@ -204,15 +205,34 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,14">
-            <TextBlock Text="Accent It"
-                       FontSize="29"
-                       FontWeight="Bold"
-                       Foreground="{StaticResource InkBrush}" />
-            <TextBlock Text="为 Unicode 字母添加组合附加符号。默认 NFC，可在预览旁切换 NFD。"
-                       Margin="0,3,0,0"
-                       Foreground="{StaticResource MutedBrush}" />
-        </StackPanel>
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="Accent It"
+                           FontSize="29"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource InkBrush}" />
+                <TextBlock Text="为 Unicode 字母添加组合附加符号。默认 NFC，可在预览旁切换 NFD。"
+                           Margin="0,3,0,0"
+                           Foreground="{StaticResource MutedBrush}" />
+            </StackPanel>
+
+            <Button x:Name="QuickInputButton"
+                    Grid.Column="1"
+                    Content="快速输入（F2）"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Padding="12,7"
+                    VerticalAlignment="Center"
+                    Margin="16,0,0,0"
+                    Click="QuickInputButton_Click"
+                    ToolTip="切换到紧凑的快速输入窗口（F2）；当前输入会一起带过去。"
+                    AutomationProperties.Name="切换到快速输入"
+                    AutomationProperties.AutomationId="QuickInputButton" />
+        </Grid>
 
         <Border Grid.Row="1"
                 Style="{StaticResource CardStyle}"
@@ -238,7 +258,8 @@
                              Padding="4,0"
                              Background="White"
                              BorderBrush="{StaticResource LineBrush}"
-                             TextChanged="BaseLetterBox_TextChanged" />
+                             TextChanged="BaseLetterBox_TextChanged"
+                             AutomationProperties.AutomationId="BaseLetterBox" />
                 </StackPanel>
                 <StackPanel Grid.Column="1"
                             Margin="16,0,0,0"

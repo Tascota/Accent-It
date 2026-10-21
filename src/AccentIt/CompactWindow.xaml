@@ -5,10 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Accent It 快速输入"
-        Width="520"
-        Height="640"
-        MinWidth="480"
-        MinHeight="560"
+        Width="460"
+        Height="430"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
         Topmost="True"
@@ -35,22 +33,18 @@
         <SolidColorBrush x:Key="WarningSurfaceBrush" Color="#FEF3C7" />
         <SolidColorBrush x:Key="WarningBorderBrush" Color="#D97706" />
 
-        <Style x:Key="CompactCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Padding" Value="12" />
-        </Style>
-
+        <!-- 紧凑窗口的符号按钮只显示“虚线圈 + 组合符号”，
+             名称、码点和说明放在悬停提示里，避免占满窗口。 -->
         <Style x:Key="CompactMarkToggleStyle" TargetType="ToggleButton">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="Margin" Value="0,0,5,5" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -61,7 +55,6 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6"
-                                Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
@@ -130,14 +123,6 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
-        <Style x:Key="CompactChipButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource CompactSecondaryButtonStyle}">
-            <Setter Property="Padding" Value="6,2" />
-            <Setter Property="Margin" Value="0,0,5,5" />
-            <Setter Property="FontSize" Value="10" />
-        </Style>
-
         <Style x:Key="CompactModeRadioStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
@@ -182,10 +167,8 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="14,12,14,12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -194,32 +177,32 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="2,0,2,9">
+        <!-- 目标应用 + 切换到完整编辑器。标题栏已经显示窗口名称，这里不再重复大标题。 -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel>
-                <TextBlock Text="Accent It · 快速输入"
-                           FontSize="19"
-                           FontWeight="Bold"
-                           Foreground="{StaticResource InkBrush}" />
-                <TextBlock x:Name="TargetHintTextBlock"
-                           Text="正在识别目标应用…"
-                           FontSize="11"
-                           Foreground="{StaticResource MutedBrush}"
-                           TextWrapping="Wrap"
-                           Margin="0,3,0,0"
-                           AutomationProperties.AutomationId="CompactTargetHint" />
-            </StackPanel>
-
-            <TextBlock Grid.Column="1"
-                       Text="置顶窗口"
-                       FontSize="10"
+            <TextBlock x:Name="TargetHintTextBlock"
+                       Text="正在识别目标应用…"
+                       FontSize="11"
                        Foreground="{StaticResource MutedBrush}"
-                       VerticalAlignment="Top"
-                       Margin="8,4,0,0" />
+                       TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"
+                       AutomationProperties.AutomationId="CompactTargetHint" />
+
+            <Button x:Name="SwitchToEditorButton"
+                    Grid.Column="1"
+                    Content="完整编辑器（F2）"
+                    Style="{StaticResource CompactSecondaryButtonStyle}"
+                    Padding="8,3"
+                    FontSize="11"
+                    Click="SwitchToEditorButton_Click"
+                    ToolTip="切换到完整编辑器（F2）；当前输入会一起带过去。"
+                    AutomationProperties.Name="切换到完整编辑器"
+                    AutomationProperties.AutomationId="CompactSwitchToEditorButton" />
         </Grid>
 
         <Border x:Name="CatalogBanner"
@@ -230,142 +213,162 @@
                 BorderThickness="1"
                 CornerRadius="7"
                 Padding="9,6"
-                Margin="0,0,0,9">
+                Margin="0,0,0,8">
             <TextBlock x:Name="CatalogBannerTextBlock"
                        FontSize="11"
                        Foreground="{StaticResource InkBrush}"
                        TextWrapping="Wrap" />
         </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource CompactCardStyle}" Margin="0,0,0,9">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <!-- 基础字母和输出模式放在同一行，保持紧凑。 -->
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="基础字母"
-                               FontSize="10"
-                               Foreground="{StaticResource MutedBrush}"
-                               Margin="0,0,0,3" />
-                    <TextBox x:Name="BaseLetterBox"
-                             Width="62"
-                             Height="38"
-                             FontSize="22"
-                             TextAlignment="Center"
-                             VerticalContentAlignment="Center"
-                             Padding="3,0"
-                             Background="White"
-                             BorderBrush="{StaticResource LineBrush}"
-                             TextChanged="BaseLetterBox_TextChanged"
-                             AutomationProperties.AutomationId="CompactBaseLetterBox" />
-                </StackPanel>
+            <TextBlock Text="字母"
+                       FontSize="11"
+                       Foreground="{StaticResource MutedBrush}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,6,0" />
 
-                <TextBlock Grid.Column="1"
-                           Text="Enter 插入 · Esc 退出 · Backspace 删除最后一个符号"
-                           FontSize="10"
-                           Foreground="{StaticResource MutedBrush}"
-                           TextWrapping="Wrap"
-                           VerticalAlignment="Center"
-                           Margin="10,0,10,0" />
+            <TextBox x:Name="BaseLetterBox"
+                     Grid.Column="1"
+                     Width="52"
+                     Height="34"
+                     FontSize="21"
+                     TextAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     Padding="3,0"
+                     Background="White"
+                     BorderBrush="{StaticResource LineBrush}"
+                     TextChanged="BaseLetterBox_TextChanged"
+                     ToolTip="基础字母：输入单个 Unicode 字母。"
+                     AutomationProperties.Name="基础字母"
+                     AutomationProperties.AutomationId="CompactBaseLetterBox" />
 
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <RadioButton x:Name="NfcOutputRadio"
-                                 Content="NFC"
-                                 GroupName="CompactOutputNormalization"
-                                 IsChecked="True"
-                                 Style="{StaticResource CompactModeRadioStyle}"
-                                 Checked="OutputModeRadio_Checked"
-                                 Margin="0,0,4,0"
-                                 AutomationProperties.Name="NFC 输出"
-                                 AutomationProperties.AutomationId="CompactNfcRadio"
-                                 ToolTip="NFC 输出（默认）：优先使用预组合字符；无法完整预组合时保留 NFC 序列。" />
-                    <RadioButton x:Name="NfdOutputRadio"
-                                 Content="NFD"
-                                 GroupName="CompactOutputNormalization"
-                                 Style="{StaticResource CompactModeRadioStyle}"
-                                 Checked="OutputModeRadio_Checked"
-                                 AutomationProperties.Name="NFD 输出"
-                                 AutomationProperties.AutomationId="CompactNfdRadio"
-                                 ToolTip="NFD 输出：完全分解为基础字母与组合符号；此模式不应用例外规则。" />
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="3"
-                Background="{StaticResource PreviewBrush}"
-                CornerRadius="8"
-                Padding="12,9"
-                Margin="0,0,0,8">
-            <StackPanel>
-                <TextBlock x:Name="PreviewTextBlock"
-                           Text="—"
-                           FontFamily="Cambria Math"
-                           FontSize="48"
-                           Foreground="{StaticResource InkBrush}"
-                           TextAlignment="Center"
-                           TextWrapping="Wrap"
-                           MinHeight="64"
-                           TextOptions.TextFormattingMode="Ideal"
-                           AutomationProperties.AutomationId="CompactPreviewTextBlock" />
-                <TextBlock x:Name="OutputInfoTextBlock"
-                           Text="等待输入"
-                           FontSize="10"
-                           FontFamily="Consolas"
-                           Foreground="{StaticResource MutedBrush}"
-                           TextAlignment="Center"
-                           TextWrapping="Wrap"
-                           AutomationProperties.AutomationId="CompactOutputInfo" />
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="10,0,0,0">
+                <RadioButton x:Name="NfcOutputRadio"
+                             Content="NFC"
+                             GroupName="CompactOutputNormalization"
+                             IsChecked="True"
+                             Style="{StaticResource CompactModeRadioStyle}"
+                             Checked="OutputModeRadio_Checked"
+                             Margin="0,0,4,0"
+                             AutomationProperties.Name="NFC 输出"
+                             AutomationProperties.AutomationId="CompactNfcRadio"
+                             ToolTip="NFC 输出（默认）：优先使用预组合字符；无法完整预组合时保留 NFC 序列。" />
+                <RadioButton x:Name="NfdOutputRadio"
+                             Content="NFD"
+                             GroupName="CompactOutputNormalization"
+                             Style="{StaticResource CompactModeRadioStyle}"
+                             Checked="OutputModeRadio_Checked"
+                             AutomationProperties.Name="NFD 输出"
+                             AutomationProperties.AutomationId="CompactNfdRadio"
+                             ToolTip="NFD 输出：完全分解为基础字母与组合符号；此模式不应用例外规则。" />
             </StackPanel>
-        </Border>
 
-        <StackPanel Grid.Row="4" Margin="2,0,2,8">
-            <Grid>
-                <TextBlock x:Name="SelectedHeaderTextBlock"
-                           Text="已选符号（按选择顺序）"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource InkBrush}"
-                           AutomationProperties.AutomationId="CompactSelectedHeader" />
-                <TextBlock Text="Backspace 删除最后一个"
-                           FontSize="10"
-                           Foreground="{StaticResource MutedBrush}"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Center" />
-            </Grid>
-            <WrapPanel x:Name="SelectedMarksPanel" MinHeight="24" Margin="0,3,0,0" />
-        </StackPanel>
+            <TextBlock Grid.Column="3"
+                       Text="Backspace 删除最后一个符号"
+                       FontSize="10"
+                       Foreground="{StaticResource MutedBrush}"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"
+                       Margin="8,0,0,0" />
+        </Grid>
 
-        <Border Grid.Row="5" Style="{StaticResource CompactCardStyle}" Padding="10">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top"
-                           Text="组合符号"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource InkBrush}"
-                           Margin="0,0,0,6" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Focusable="False">
-                    <StackPanel x:Name="MarkGroupsPanel" />
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
+        <!-- 符号围绕预览字母：上方一排、下方一排，其余位置放左右两列。
+             不使用位置名称文字；名称只出现在悬停提示和辅助功能名称中。 -->
+        <ScrollViewer Grid.Row="3"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Focusable="False">
+            <Border Background="{StaticResource PreviewBrush}"
+                    CornerRadius="10"
+                    Padding="8,6"
+                    VerticalAlignment="Center">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel x:Name="AboveMarksPanel"
+                               Grid.Row="0"
+                               HorizontalAlignment="Center"
+                               Orientation="Horizontal"
+                               AutomationProperties.AutomationId="CompactAboveMarksPanel" />
+
+                    <Grid Grid.Row="1" Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel x:Name="LeftMarksPanel"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,6,0"
+                                    AutomationProperties.AutomationId="CompactLeftMarksPanel" />
+
+                        <Border Grid.Column="1"
+                                Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="8,2"
+                                MinWidth="132"
+                                MinHeight="76"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="PreviewTextBlock"
+                                       Text="—"
+                                       FontFamily="Cambria Math"
+                                       FontSize="44"
+                                       Foreground="{StaticResource InkBrush}"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MinHeight="62"
+                                       TextOptions.TextFormattingMode="Ideal"
+                                       AutomationProperties.AutomationId="CompactPreviewTextBlock" />
+                        </Border>
+
+                        <StackPanel x:Name="RightMarksPanel"
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Margin="6,0,0,0"
+                                    AutomationProperties.AutomationId="CompactRightMarksPanel" />
+                    </Grid>
+
+                    <WrapPanel x:Name="BelowMarksPanel"
+                               Grid.Row="2"
+                               HorizontalAlignment="Center"
+                               Orientation="Horizontal"
+                               AutomationProperties.AutomationId="CompactBelowMarksPanel" />
+                </Grid>
+            </Border>
+        </ScrollViewer>
 
         <TextBlock x:Name="StatusTextBlock"
-                   Grid.Row="6"
-                   Margin="2,8,2,8"
-                   FontSize="11"
+                   Grid.Row="4"
+                   Margin="2,6,2,6"
+                   FontSize="10"
                    Foreground="{StaticResource MutedBrush}"
                    TextWrapping="Wrap"
+                   MinHeight="28"
+                   MaxHeight="46"
                    Text="就绪"
                    AutomationProperties.AutomationId="CompactStatusTextBlock" />
 
-        <Grid Grid.Row="7">
+        <Grid Grid.Row="5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -378,7 +381,8 @@
                        FontSize="10"
                        Foreground="{StaticResource MutedBrush}"
                        VerticalAlignment="Center"
-                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="NoWrap"
                        Margin="0,0,8,0"
                        AutomationProperties.AutomationId="CompactActionHint" />
 
@@ -386,6 +390,7 @@
                     Grid.Column="1"
                     Content="复制结果"
                     Style="{StaticResource CompactSecondaryButtonStyle}"
+                    Padding="8,5"
                     Click="CopyResultButton_Click"
                     IsEnabled="False"
                     ToolTip="只把结果写入剪贴板，不向其他应用发送粘贴。"
