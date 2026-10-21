@@ -23,6 +23,8 @@ public sealed class CompositionResult
         string nfd,
         CompositionKind kind,
         SpecialCompositionRule? appliedRule,
+        LetterPathRule? appliedPathRule,
+        LetterPathRule? appliedMarkPathRule,
         IReadOnlyList<int> codePoints)
     {
         IsValid = isValid;
@@ -33,6 +35,8 @@ public sealed class CompositionResult
         Nfd = nfd;
         Kind = kind;
         AppliedRule = appliedRule;
+        AppliedPathRule = appliedPathRule;
+        AppliedMarkPathRule = appliedMarkPathRule;
         CodePoints = codePoints;
     }
 
@@ -52,6 +56,10 @@ public sealed class CompositionResult
 
     public SpecialCompositionRule? AppliedRule { get; }
 
+    public LetterPathRule? AppliedPathRule { get; }
+
+    public LetterPathRule? AppliedMarkPathRule { get; }
+
     public IReadOnlyList<int> CodePoints { get; }
 
     public static CompositionResult Success(
@@ -59,7 +67,9 @@ public sealed class CompositionResult
         string rawSequence,
         string nfc,
         CompositionKind kind,
-        SpecialCompositionRule? appliedRule = null)
+        SpecialCompositionRule? appliedRule = null,
+        LetterPathRule? appliedPathRule = null,
+        LetterPathRule? appliedMarkPathRule = null)
     {
         var codePoints = output
             .EnumerateRunes()
@@ -75,6 +85,8 @@ public sealed class CompositionResult
             output.Normalize(NormalizationForm.FormD),
             kind,
             appliedRule,
+            appliedPathRule,
+            appliedMarkPathRule,
             codePoints);
     }
 
@@ -87,6 +99,8 @@ public sealed class CompositionResult
             string.Empty,
             string.Empty,
             CompositionKind.Invalid,
+            null,
+            null,
             null,
             Array.Empty<int>());
 }

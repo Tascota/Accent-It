@@ -10,7 +10,7 @@ public sealed record MarkLayoutGroups(
     IReadOnlyList<AccentMark> Right);
 
 /// <summary>
-/// 把符号按位置 id 分到预览字母的四边。位置 id 由用户在 accents.jsonc
+/// 把符号按位置 id 分到预览字母的四边。位置 id 在 accents.default.jsonc
 /// 中定义，因此这里是约定而不是硬编码符号：
 /// above/top → 上方，below/bottom/under → 下方，left/right → 左右，
 /// 其他位置（包括默认的 overlay）在左右之间交替分配。

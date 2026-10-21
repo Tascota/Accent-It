@@ -10,25 +10,16 @@
         MinHeight="600"
         MinWidth="880"
         WindowStartupLocation="CenterScreen"
-        Background="#F6F3ED"
+        Background="{DynamicResource AppBackgroundBrush}"
         FontFamily="Segoe UI"
         FontSize="13"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>
-        <SolidColorBrush x:Key="InkBrush" Color="#24211C" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#6E675D" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#B45309" />
-        <SolidColorBrush x:Key="AccentSoftBrush" Color="#FBE9D7" />
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFDF9" />
-        <SolidColorBrush x:Key="PreviewBrush" Color="#F1ECE3" />
-        <SolidColorBrush x:Key="LineBrush" Color="#DED6C8" />
-        <SolidColorBrush x:Key="ErrorBrush" Color="#B42318" />
-
         <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="18" />
@@ -37,35 +28,29 @@
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
             <Setter Property="Margin" Value="0,0,0,6" />
-        </Style>
-
-        <Style x:Key="HintTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <Style x:Key="DiagnosticLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Margin" Value="0,9,0,3" />
         </Style>
 
         <Style x:Key="DiagnosticValueStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Consolas" />
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <Style x:Key="MarkToggleStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="Margin" Value="0,0,8,8" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -86,14 +71,14 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="#C4B8A7" />
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="MarkBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="MarkBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="MarkBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="MarkBorder" Property="Opacity" Value="0.45" />
@@ -105,8 +90,8 @@
         </Style>
 
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
             <Setter Property="Padding" Value="14,9" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
@@ -123,10 +108,14 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#92400E" />
+                                <Setter TargetName="PrimaryBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource PrimaryHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="PrimaryBorder" Property="Background" Value="#78350F" />
+                                <Setter TargetName="PrimaryBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource PrimaryPressedBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="PrimaryBorder" Property="Opacity" Value="0.45" />
@@ -138,13 +127,51 @@
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="11,6" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="SecondaryBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SecondaryBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter TargetName="SecondaryBorder"
+                                        Property="BorderBrush"
+                                        Value="{DynamicResource HoverBorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="SecondaryBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter TargetName="SecondaryBorder"
+                                        Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="SecondaryBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="ChipButtonStyle" TargetType="Button"
@@ -155,10 +182,10 @@
         </Style>
 
         <Style x:Key="OutputModeRadioStyle" TargetType="RadioButton">
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Padding" Value="8,3" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Cursor" Value="Hand" />
@@ -177,15 +204,15 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="#C4B8A7" />
+                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="{DynamicResource HoverBorderBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="OutputModeBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                                <Setter TargetName="OutputModeBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="OutputModeBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="OutputModeBorder" Property="Opacity" Value="0.45" />
@@ -194,6 +221,15 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <Style x:Key="EditorTabRadioStyle"
+               TargetType="RadioButton"
+               BasedOn="{StaticResource OutputModeRadioStyle}">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,6,0" />
         </Style>
     </Window.Resources>
 
@@ -215,23 +251,31 @@
                 <TextBlock Text="Accent It"
                            FontSize="29"
                            FontWeight="Bold"
-                           Foreground="{StaticResource InkBrush}" />
-                <TextBlock Text="为 Unicode 字母添加组合附加符号。默认 NFC，可在预览旁切换 NFD。"
-                           Margin="0,3,0,0"
-                           Foreground="{StaticResource MutedBrush}" />
+                           Foreground="{DynamicResource InkBrush}" />
             </StackPanel>
 
-            <Button x:Name="QuickInputButton"
-                    Grid.Column="1"
-                    Content="快速输入（F2）"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    Padding="12,7"
-                    VerticalAlignment="Center"
-                    Margin="16,0,0,0"
-                    Click="QuickInputButton_Click"
-                    ToolTip="切换到紧凑的快速输入窗口（F2）；当前输入会一起带过去。"
-                    AutomationProperties.Name="切换到快速输入"
-                    AutomationProperties.AutomationId="QuickInputButton" />
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="16,0,0,0">
+                <Button x:Name="ThemeToggleButton"
+                        Content="深夜模式"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="12,7"
+                        Click="ThemeToggleButton_Click"
+                        ToolTip="切换界面配色"
+                        AutomationProperties.Name="切换到深夜模式"
+                        AutomationProperties.AutomationId="ThemeToggleButton" />
+                <Button x:Name="QuickInputButton"
+                        Content="紧凑窗口 (F2)"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="12,7"
+                        Margin="8,0,0,0"
+                        Click="QuickInputButton_Click"
+                        ToolTip="切换到紧凑窗口"
+                        AutomationProperties.Name="切换到紧凑窗口"
+                        AutomationProperties.AutomationId="QuickInputButton" />
+            </StackPanel>
         </Grid>
 
         <Border Grid.Row="1"
@@ -247,7 +291,7 @@
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="基础字母"
                                FontSize="11"
-                               Foreground="{StaticResource MutedBrush}"
+                               Foreground="{DynamicResource MutedBrush}"
                                Margin="0,0,0,4" />
                     <TextBox x:Name="BaseLetterBox"
                              Width="88"
@@ -256,23 +300,24 @@
                              TextAlignment="Center"
                              VerticalContentAlignment="Center"
                              Padding="4,0"
-                             Background="White"
-                             BorderBrush="{StaticResource LineBrush}"
+                             Background="{DynamicResource FieldBrush}"
+                             BorderBrush="{DynamicResource LineBrush}"
                              TextChanged="BaseLetterBox_TextChanged"
+                             ToolTip="输入单个字母"
                              AutomationProperties.AutomationId="BaseLetterBox" />
                 </StackPanel>
                 <StackPanel Grid.Column="1"
                             Margin="16,0,0,0"
                             VerticalAlignment="Center">
                     <TextBlock x:Name="InputHintTextBlock"
-                               Text="输入单个 Unicode 字母"
+                               Text=""
                                FontSize="11"
-                               Foreground="{StaticResource MutedBrush}" />
+                               Foreground="{DynamicResource MutedBrush}" />
                     <TextBlock x:Name="ConfigStatusTextBlock"
                                Text="正在读取符号目录…"
                                Margin="0,4,0,0"
                                FontSize="11"
-                               Foreground="{StaticResource MutedBrush}"
+                               Foreground="{DynamicResource MutedBrush}"
                                TextWrapping="Wrap" />
                     <Grid Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
@@ -283,21 +328,21 @@
                         <TextBlock x:Name="HotkeyStatusTextBlock"
                                    Text="全局快捷键：读取中…"
                                    FontSize="11"
-                                   Foreground="{StaticResource MutedBrush}"
+                                   Foreground="{DynamicResource MutedBrush}"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center"
                                    AutomationProperties.AutomationId="HotkeyStatusTextBlock" />
 
                         <Button x:Name="OpenSettingsButton"
                                 Grid.Column="1"
-                                Content="打开设置文件"
+                                Content="设置"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Padding="8,3"
                                 FontSize="11"
                                 Margin="10,0,0,0"
                                 VerticalAlignment="Center"
                                 Click="OpenSettingsButton_Click"
-                                ToolTip="打开 Data/settings.jsonc；修改后重启程序生效。"
+                                ToolTip="修改后重启程序生效"
                                 AutomationProperties.AutomationId="OpenSettingsButton" />
                     </Grid>
                 </StackPanel>
@@ -314,16 +359,90 @@
                     Style="{StaticResource CardStyle}"
                     Margin="0,0,14,0">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <TextBlock Text="组合符号" Style="{StaticResource SectionTitleStyle}" />
-                        <TextBlock Text="点击选择或取消。键盘：Tab 聚焦，空格切换。"
-                                   Style="{StaticResource HintTextStyle}" />
+                    <StackPanel DockPanel.Dock="Top"
+                                Orientation="Horizontal"
+                                Margin="0,0,0,12">
+                        <RadioButton x:Name="MarksTabRadio"
+                                     Content="组合符号"
+                                     GroupName="EditorSection"
+                                     IsChecked="True"
+                                     Style="{StaticResource EditorTabRadioStyle}"
+                                     Checked="EditorTab_Checked"
+                                     AutomationProperties.AutomationId="MarksTab" />
+                        <RadioButton x:Name="OperationsTabRadio"
+                                     Content="字母变形"
+                                     GroupName="EditorSection"
+                                     Style="{StaticResource EditorTabRadioStyle}"
+                                     Checked="EditorTab_Checked"
+                                     AutomationProperties.AutomationId="OperationsTab" />
+                        <RadioButton x:Name="OtherLettersTabRadio"
+                                     Content="其他字符"
+                                     GroupName="EditorSection"
+                                     Style="{StaticResource EditorTabRadioStyle}"
+                                     Checked="EditorTab_Checked"
+                                     AutomationProperties.AutomationId="OtherLettersTab" />
                     </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Focusable="False">
-                        <StackPanel x:Name="MarkGroupsPanel" />
-                    </ScrollViewer>
+
+                    <Grid>
+                        <ScrollViewer x:Name="MarkGroupsScrollViewer"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Focusable="False">
+                            <StackPanel x:Name="MarkGroupsPanel" />
+                        </ScrollViewer>
+
+                        <ScrollViewer x:Name="OperationGroupsScrollViewer"
+                                      Visibility="Collapsed"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Focusable="False">
+                            <StackPanel x:Name="OperationGroupsPanel" />
+                        </ScrollViewer>
+
+                        <Grid x:Name="OtherLettersGrid"
+                              Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid>
+                                <TextBox x:Name="OtherLetterSearchBox"
+                                         Height="32"
+                                         Padding="8,4"
+                                         FontSize="13"
+                                         VerticalContentAlignment="Center"
+                                         Background="{DynamicResource FieldBrush}"
+                                         BorderBrush="{DynamicResource LineBrush}"
+                                         TextChanged="OtherLetterSearchBox_TextChanged"
+                                         AutomationProperties.Name="搜索其他字符"
+                                         AutomationProperties.AutomationId="OtherLetterSearchBox" />
+                                <TextBlock x:Name="OtherLetterSearchHintTextBlock"
+                                           Text="搜索字母、名称或码点"
+                                           Margin="9,0,0,0"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False" />
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="1"
+                                          Margin="0,8,0,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Focusable="False">
+                                <StackPanel>
+                                    <TextBlock x:Name="OtherLetterCountTextBlock"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               Margin="0,0,0,8"
+                                               TextWrapping="Wrap"
+                                               AutomationProperties.AutomationId="OtherLetterCountTextBlock" />
+                                    <StackPanel x:Name="OtherLetterGroupsPanel" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
                 </DockPanel>
             </Border>
 
@@ -348,7 +467,7 @@
                                         VerticalAlignment="Center">
                                 <TextBlock Text="输出"
                                            FontSize="11"
-                                           Foreground="{StaticResource MutedBrush}"
+                                           Foreground="{DynamicResource MutedBrush}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,6,0" />
                                 <RadioButton x:Name="NfcOutputRadio"
@@ -372,7 +491,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <Border Background="{StaticResource PreviewBrush}"
+                        <Border Background="{DynamicResource PreviewBrush}"
                                 CornerRadius="8"
                                 Padding="16"
                                 Margin="0,0,0,10">
@@ -380,47 +499,90 @@
                                        Text="—"
                                        FontFamily="Cambria Math"
                                        FontSize="72"
-                                       Foreground="{StaticResource InkBrush}"
+                                       Foreground="{DynamicResource InkBrush}"
                                        TextAlignment="Center"
                                        VerticalAlignment="Center"
                                        TextWrapping="Wrap"
                                        MinHeight="96"
-                                       TextOptions.TextFormattingMode="Ideal" />
+                                       TextOptions.TextFormattingMode="Ideal"
+                                       AutomationProperties.AutomationId="PreviewTextBlock" />
                         </Border>
 
                         <TextBlock x:Name="OutputKindTextBlock"
                                    Text="等待输入"
                                    FontSize="12"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource AccentBrush}"
-                                   TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="OutputKindTextBlock" />
                         <TextBlock x:Name="OutputCodePointsTextBlock"
                                    FontFamily="Consolas"
                                    FontSize="11"
-                                   Foreground="{StaticResource MutedBrush}"
+                                   Foreground="{DynamicResource MutedBrush}"
                                    Margin="0,4,0,0"
-                                   TextWrapping="Wrap" />
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="OutputCodePointsTextBlock" />
 
-                        <Separator Margin="0,14,0,14" Background="{StaticResource LineBrush}" />
+                        <TextBlock x:Name="PathStatusTextBlock"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Margin="0,6,0,0"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="PathStatusTextBlock" />
+
+                        <Separator Margin="0,14,0,14" Background="{DynamicResource LineBrush}" />
+
+                        <TextBlock x:Name="SelectedOperationsHeaderTextBlock"
+                                   Text="已选变形"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   FontSize="13"
+                                   Visibility="Collapsed" />
+                        <WrapPanel x:Name="SelectedOperationsPanel"
+                                   Visibility="Collapsed" />
+
+                        <StackPanel x:Name="SecondLetterPanel"
+                                    Visibility="Collapsed"
+                                    Margin="0,4,0,8">
+                            <TextBlock Text="合字的第二个字母"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       Margin="0,0,0,4" />
+                            <TextBox x:Name="SecondLetterBox"
+                                     Width="88"
+                                     Height="36"
+                                     FontSize="20"
+                                     TextAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     Padding="4,0"
+                                     Background="{DynamicResource FieldBrush}"
+                                     BorderBrush="{DynamicResource LineBrush}"
+                                     TextChanged="SecondLetterBox_TextChanged"
+                                     ToolTip="输入单个字母"
+                                     AutomationProperties.Name="合字的第二个字母"
+                                     AutomationProperties.AutomationId="SecondLetterBox" />
+                        </StackPanel>
 
                         <TextBlock x:Name="SelectedHeaderTextBlock"
-                                   Text="已选符号（按选择顺序）"
+                                   Text="已选符号"
                                    Style="{StaticResource SectionTitleStyle}"
                                    FontSize="13" />
                         <WrapPanel x:Name="SelectedMarksPanel" MinHeight="28" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button x:Name="UndoButton"
-                                    Content="撤销上一个"
+                                    Content="撤销"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Click="UndoButton_Click"
-                                    IsEnabled="False" />
+                                    IsEnabled="False"
+                                    ToolTip="撤销最后一个变形、第二个字母或符号" />
                             <Button x:Name="ClearButton"
                                     Content="清空"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Click="ClearButton_Click"
                                     IsEnabled="False"
-                                    Margin="8,0,0,0" />
+                                    Margin="8,0,0,0"
+                                    ToolTip="清空所有变形、第二个字母和符号" />
                         </StackPanel>
 
                         <Button x:Name="CopyButton"
@@ -428,13 +590,15 @@
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Click="CopyButton_Click"
                                 Margin="0,14,0,0"
-                                IsEnabled="False" />
+                                IsEnabled="False"
+                                AutomationProperties.AutomationId="CopyButton" />
 
                         <Expander x:Name="DiagnosticsExpander"
                                   Header="诊断详情"
                                   Margin="0,16,0,0"
-                                  Foreground="{StaticResource InkBrush}"
-                                  HorizontalContentAlignment="Stretch">
+                                  Foreground="{DynamicResource InkBrush}"
+                                  HorizontalContentAlignment="Stretch"
+                                  AutomationProperties.AutomationId="DiagnosticsExpander">
                             <StackPanel Margin="0,8,0,0">
                                 <TextBlock Text="配置来源" Style="{StaticResource DiagnosticLabelStyle}" />
                                 <TextBlock x:Name="ConfigPathTextBlock"
@@ -463,7 +627,7 @@
 
                                 <TextBlock x:Name="AppliedRuleTextBlock"
                                            Style="{StaticResource DiagnosticValueStyle}"
-                                           Foreground="{StaticResource AccentBrush}"
+                                           Foreground="{DynamicResource AccentBrush}"
                                            Margin="0,9,0,0"
                                            Visibility="Collapsed" />
 
@@ -472,7 +636,7 @@
                                            Margin="0,12,0,3" />
                                 <TextBlock x:Name="IssuesTextBlock"
                                            FontSize="11"
-                                           Foreground="{StaticResource MutedBrush}"
+                                           Foreground="{DynamicResource MutedBrush}"
                                            TextWrapping="Wrap"
                                            Text="没有配置问题。" />
 
@@ -481,7 +645,7 @@
                                            Margin="0,12,0,3" />
                                 <TextBlock x:Name="SettingsIssuesTextBlock"
                                            FontSize="11"
-                                           Foreground="{StaticResource MutedBrush}"
+                                           Foreground="{DynamicResource MutedBrush}"
                                            TextWrapping="Wrap"
                                            Text="没有设置问题。" />
                             </StackPanel>
@@ -495,9 +659,9 @@
                    Grid.Row="3"
                    Margin="2,11,0,0"
                    FontSize="11"
-                   Foreground="{StaticResource MutedBrush}"
+                   Foreground="{DynamicResource MutedBrush}"
                    TextWrapping="Wrap"
-                   Text="就绪"
+                   Text=""
                    AutomationProperties.AutomationId="StatusTextBlock" />
     </Grid>
 </Window>

@@ -237,4 +237,12 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    /// <summary>让 Win32 标题栏使用深色绘制（DWMWA_USE_IMMERSIVE_DARK_MODE）。</summary>
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int attribute,
+        ref int attributeValue,
+        int attributeSize);
 }

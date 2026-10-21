@@ -14,7 +14,5 @@ public sealed class CatalogLoadResult
 
     public string? SourcePath { get; init; }
 
-    public bool UsedFallback { get; init; }
-
     public bool IsSuccess => Catalog is not null;
 }

@@ -49,13 +49,15 @@ public sealed class AccentCatalog
         IEnumerable<AccentPosition> positions,
         IEnumerable<AccentMark> marks,
         CompositionMode compositionMode,
-        IEnumerable<SpecialCompositionRule>? specialRules = null)
+        IEnumerable<SpecialCompositionRule>? specialRules = null,
+        LetterCompositionCatalog? letterComposition = null)
     {
         SchemaVersion = schemaVersion;
         Positions = positions.ToArray();
         Marks = marks.ToArray();
         CompositionMode = compositionMode;
         SpecialRules = specialRules?.ToArray() ?? Array.Empty<SpecialCompositionRule>();
+        LetterComposition = letterComposition;
         _marksById = Marks.ToDictionary(mark => mark.Id, StringComparer.Ordinal);
     }
 
@@ -69,10 +71,34 @@ public sealed class AccentCatalog
 
     public IReadOnlyList<SpecialCompositionRule> SpecialRules { get; }
 
+    /// <summary>
+    /// 字母变形路径与“其他字符”数据。配置没有 letterComposition 段时为 null，
+    /// 界面只显示组合符号。
+    /// </summary>
+    public LetterCompositionCatalog? LetterComposition { get; }
+
     public AccentMark? FindMark(string id) => _marksById.GetValueOrDefault(id);
 
     public IReadOnlyList<AccentMark> GetMarksForPosition(string positionId)
         => Marks
             .Where(mark => string.Equals(mark.PositionId, positionId, StringComparison.Ordinal))
             .ToArray();
+
+    public AccentCatalog WithLetterComposition(LetterCompositionCatalog letterComposition)
+        => new(
+            SchemaVersion,
+            Positions,
+            Marks,
+            CompositionMode,
+            SpecialRules,
+            letterComposition);
+
+    public AccentCatalog WithMarks(IEnumerable<AccentMark> marks)
+        => new(
+            SchemaVersion,
+            Positions,
+            marks,
+            CompositionMode,
+            SpecialRules,
+            LetterComposition);
 }

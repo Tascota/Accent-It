@@ -304,6 +304,416 @@ public sealed class AccentCatalogLoader
             }
         }
 
+        LetterCompositionCatalog? letterComposition = null;
+
+        if (dto.LetterComposition is not null)
+        {
+            var blocks = new List<LetterBlock>();
+            var blockIds = new HashSet<string>(StringComparer.Ordinal);
+            var blockRanges = new List<(int First, int Last, string Id)>();
+
+            if (dto.LetterComposition.Blocks is { Count: > 0 })
+            {
+                for (var i = 0; i < dto.LetterComposition.Blocks.Count; i++)
+                {
+                    var item = dto.LetterComposition.Blocks[i];
+                    var location = $"letterComposition.blocks[{i}]";
+
+                    if (item is null)
+                    {
+                        Add(location, "区块条目不能为 null。");
+                        continue;
+                    }
+
+                    var id = item.Id?.Trim();
+                    var displayName = item.DisplayName?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(id))
+                    {
+                        Add($"{location}.id", "区块 id 不能为空。");
+                        continue;
+                    }
+
+                    if (!IsValidId(id))
+                    {
+                        Add($"{location}.id", "区块 id 只能包含 ASCII 字母、数字、-、_、.。");
+                        continue;
+                    }
+
+                    if (!blockIds.Add(id))
+                    {
+                        Add($"{location}.id", $"区块 id “{id}” 重复。");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        Add($"{location}.displayName", "区块显示名称不能为空。");
+                        continue;
+                    }
+
+                    if (!TryParseCodePoint(item.FirstCodePoint, out var first, out var firstError))
+                    {
+                        Add($"{location}.firstCodePoint", firstError);
+                        continue;
+                    }
+
+                    if (!TryParseCodePoint(item.LastCodePoint, out var last, out var lastError))
+                    {
+                        Add($"{location}.lastCodePoint", lastError);
+                        continue;
+                    }
+
+                    if (first.Value > last.Value)
+                    {
+                        Add(location, "区块的起始码点不能大于结束码点。");
+                        continue;
+                    }
+
+                    var overlapping = blockRanges.FirstOrDefault(
+                        range => first.Value <= range.Last && last.Value >= range.First);
+
+                    if (overlapping.Id is not null)
+                    {
+                        Add(location, $"区块范围与“{overlapping.Id}”重叠。");
+                        continue;
+                    }
+
+                    blockRanges.Add((first.Value, last.Value, id));
+                    blocks.Add(new LetterBlock(id, displayName, first, last));
+                }
+            }
+
+            var operations = new List<LetterOperation>();
+            var operationIds = new HashSet<string>(StringComparer.Ordinal);
+
+            if (dto.LetterComposition.Operations is { Count: > 0 })
+            {
+                for (var i = 0; i < dto.LetterComposition.Operations.Count; i++)
+                {
+                    var item = dto.LetterComposition.Operations[i];
+                    var location = $"letterComposition.operations[{i}]";
+
+                    if (item is null)
+                    {
+                        Add(location, "变形操作条目不能为 null。");
+                        continue;
+                    }
+
+                    var id = item.Id?.Trim();
+                    var name = item.Name?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(id))
+                    {
+                        Add($"{location}.id", "变形操作 id 不能为空。");
+                        continue;
+                    }
+
+                    if (!IsValidId(id))
+                    {
+                        Add($"{location}.id", "变形操作 id 只能包含 ASCII 字母、数字、-、_、.。");
+                        continue;
+                    }
+
+                    if (!operationIds.Add(id))
+                    {
+                        Add($"{location}.id", $"变形操作 id “{id}” 重复。");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        Add($"{location}.name", "变形操作名称不能为空。");
+                        continue;
+                    }
+
+                    var group = string.IsNullOrWhiteSpace(item.Group)
+                        ? "其他"
+                        : item.Group.Trim();
+                    var description = string.IsNullOrWhiteSpace(item.Description)
+                        ? null
+                        : item.Description.Trim();
+
+                    operations.Add(new LetterOperation(
+                        id,
+                        name,
+                        group,
+                        description,
+                        item.RequiresSecondLetter));
+                }
+            }
+
+            var pathRules = new List<LetterPathRule>();
+            var pathRuleKeys = new HashSet<string>(StringComparer.Ordinal);
+
+            if (dto.LetterComposition.Rules is { Count: > 0 })
+            {
+                for (var i = 0; i < dto.LetterComposition.Rules.Count; i++)
+                {
+                    var item = dto.LetterComposition.Rules[i];
+                    var location = $"letterComposition.rules[{i}]";
+
+                    if (item is null)
+                    {
+                        Add(location, "字母路径规则不能为 null。");
+                        continue;
+                    }
+
+                    if (!TryParseSingleLetter(item.Base, out var pathBase, out var baseError))
+                    {
+                        Add($"{location}.base", baseError);
+                        continue;
+                    }
+
+                    var ruleMarkIds = new List<string>();
+                    var ruleOperationIds = new List<string>();
+                    var hasInvalidReference = false;
+
+                    if (item.Marks is { Count: > 0 })
+                    {
+                        var seenMarkIds = new HashSet<string>(StringComparer.Ordinal);
+
+                        for (var j = 0; j < item.Marks.Count; j++)
+                        {
+                            var markId = item.Marks[j]?.Trim();
+
+                            if (string.IsNullOrWhiteSpace(markId))
+                            {
+                                Add($"{location}.marks[{j}]", "符号 id 不能为空。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            if (!seenMarkIds.Add(markId))
+                            {
+                                Add($"{location}.marks[{j}]", $"符号 id “{markId}” 重复。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            if (!markIds.Contains(markId))
+                            {
+                                Add($"{location}.marks[{j}]", $"符号 “{markId}” 未在 marks 中定义。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            ruleMarkIds.Add(markId);
+                        }
+                    }
+
+                    if (item.Operations is { Count: > 0 })
+                    {
+                        var seenOperationIds = new HashSet<string>(StringComparer.Ordinal);
+
+                        for (var j = 0; j < item.Operations.Count; j++)
+                        {
+                            var operationId = item.Operations[j]?.Trim();
+
+                            if (string.IsNullOrWhiteSpace(operationId))
+                            {
+                                Add($"{location}.operations[{j}]", "变形操作 id 不能为空。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            if (!seenOperationIds.Add(operationId))
+                            {
+                                Add($"{location}.operations[{j}]", $"变形操作 id “{operationId}” 重复。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            if (!operationIds.Contains(operationId))
+                            {
+                                Add($"{location}.operations[{j}]", $"变形操作 “{operationId}” 未在 operations 中定义。");
+                                hasInvalidReference = true;
+                                continue;
+                            }
+
+                            ruleOperationIds.Add(operationId);
+                        }
+                    }
+
+                    if (hasInvalidReference)
+                    {
+                        continue;
+                    }
+
+                    if (ruleMarkIds.Count == 0 && ruleOperationIds.Count == 0)
+                    {
+                        Add(location, "规则必须至少引用一个组合符号或一个变形操作。");
+                        continue;
+                    }
+
+                    if (ruleMarkIds.Count > 0 && ruleOperationIds.Count > 0)
+                    {
+                        Add(location, "同一条规则不能同时使用 marks 和 operations。");
+                        continue;
+                    }
+
+                    Rune? secondLetter = null;
+
+                    if (!string.IsNullOrWhiteSpace(item.Second))
+                    {
+                        if (!TryParseLetter(item.Second, "第二个字母", out var parsedSecond, out var secondError))
+                        {
+                            Add($"{location}.second", secondError);
+                            continue;
+                        }
+
+                        secondLetter = parsedSecond;
+                    }
+
+                    if (ruleMarkIds.Count > 0 && secondLetter is not null)
+                    {
+                        Add($"{location}.second", "组合符号例外规则不能指定第二个字母。");
+                        continue;
+                    }
+
+                    if (ruleOperationIds.Count > 0)
+                    {
+                        var requiresSecond = ruleOperationIds
+                            .Select(id => operations.FirstOrDefault(operation => operation.Id == id))
+                            .Any(operation => operation?.RequiresSecondLetter == true);
+
+                        if (requiresSecond && secondLetter is null)
+                        {
+                            Add($"{location}.second", "该规则使用的变形操作需要第二个字母。");
+                            continue;
+                        }
+                    }
+
+                    if (!TryParseCodePoint(item.ResultCodePoint, out var result, out var resultError))
+                    {
+                        Add($"{location}.resultCodePoint", resultError);
+                        continue;
+                    }
+
+                    if (!Rune.IsLetter(result))
+                    {
+                        Add($"{location}.resultCodePoint", $"U+{result.Value:X4} 不是字母，不能作为路径结果。");
+                        continue;
+                    }
+
+                    var ruleKey = MakePathRuleKey(pathBase, secondLetter, ruleMarkIds, ruleOperationIds);
+
+                    if (!pathRuleKeys.Add(ruleKey))
+                    {
+                        Add(location, "存在基础字母、操作/符号集合和第二字母完全相同的重复路径。");
+                        continue;
+                    }
+
+                    var note = string.IsNullOrWhiteSpace(item.Note) ? null : item.Note.Trim();
+                    pathRules.Add(new LetterPathRule(
+                        pathBase,
+                        secondLetter,
+                        ruleMarkIds,
+                        ruleOperationIds,
+                        result,
+                        note));
+                }
+            }
+
+            var otherLetters = new List<OtherLetter>();
+            var otherLetterCodePoints = new HashSet<int>();
+            var coveredResults = new HashSet<int>(rules.Select(rule => rule.Result.Value));
+
+            foreach (var pathRule in pathRules)
+            {
+                coveredResults.Add(pathRule.Result.Value);
+            }
+
+            if (dto.LetterComposition.OtherLetters is { Count: > 0 })
+            {
+                for (var i = 0; i < dto.LetterComposition.OtherLetters.Count; i++)
+                {
+                    var item = dto.LetterComposition.OtherLetters[i];
+                    var location = $"letterComposition.otherLetters[{i}]";
+
+                    if (item is null)
+                    {
+                        Add(location, "其他字符条目不能为 null。");
+                        continue;
+                    }
+
+                    if (!TryParseCodePoint(item.CodePoint, out var letter, out var codePointError))
+                    {
+                        Add($"{location}.codePoint", codePointError);
+                        continue;
+                    }
+
+                    if (!Rune.IsLetter(letter))
+                    {
+                        Add($"{location}.codePoint", $"U+{letter.Value:X4} 不是字母。");
+                        continue;
+                    }
+
+                    if (!otherLetterCodePoints.Add(letter.Value))
+                    {
+                        Add($"{location}.codePoint", $"字符 U+{letter.Value:X4} 重复。");
+                        continue;
+                    }
+
+                    var name = item.Name?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        Add($"{location}.name", "其他字符名称不能为空。");
+                        continue;
+                    }
+
+                    var blockId = string.IsNullOrWhiteSpace(item.Block)
+                        ? null
+                        : item.Block.Trim();
+
+                    if (blockId is not null && !blockIds.Contains(blockId))
+                    {
+                        Add($"{location}.block", $"区块 “{blockId}” 未在 blocks 中定义。");
+                        continue;
+                    }
+
+                    if (coveredResults.Contains(letter.Value))
+                    {
+                        Add(
+                            location,
+                            $"U+{letter.Value:X4} 已有组合路径，不应放入 otherLetters。");
+                        continue;
+                    }
+
+                    var aliases = new List<string>();
+
+                    if (item.Aliases is not null)
+                    {
+                        var seenAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var aliasText in item.Aliases)
+                        {
+                            var alias = aliasText?.Trim();
+
+                            if (string.IsNullOrWhiteSpace(alias))
+                            {
+                                continue;
+                            }
+
+                            if (seenAliases.Add(alias))
+                            {
+                                aliases.Add(alias);
+                            }
+                        }
+                    }
+
+                    otherLetters.Add(new OtherLetter(letter, name, blockId, aliases));
+                }
+            }
+
+            letterComposition = new LetterCompositionCatalog(
+                blocks,
+                operations,
+                pathRules,
+                otherLetters);
+        }
+
         if (issues.Count > 0)
         {
             return new CatalogLoadResult
@@ -318,7 +728,8 @@ public sealed class AccentCatalogLoader
             positions,
             marks,
             compositionMode,
-            rules);
+            rules,
+            letterComposition);
 
         return new CatalogLoadResult
         {
@@ -362,13 +773,16 @@ public sealed class AccentCatalogLoader
     }
 
     private static bool TryParseSingleLetter(string? text, out Rune letter, out string error)
+        => TryParseLetter(text, "基础字母", out letter, out error);
+
+    private static bool TryParseLetter(string? text, string role, out Rune letter, out string error)
     {
         letter = default;
         error = string.Empty;
 
         if (string.IsNullOrEmpty(text))
         {
-            error = "必须提供一个基础字母。";
+            error = $"必须提供一个{role}。";
             return false;
         }
 
@@ -376,13 +790,13 @@ public sealed class AccentCatalogLoader
 
         if (runes.Length != 1)
         {
-            error = "基础字母必须是单个 Unicode 字符。";
+            error = $"{role}必须是单个 Unicode 字符。";
             return false;
         }
 
         if (!Rune.IsLetter(runes[0]))
         {
-            error = "基础必须是一个字母。";
+            error = $"{role}必须是一个字母。";
             return false;
         }
 
@@ -430,6 +844,20 @@ public sealed class AccentCatalogLoader
     private static string MakeRuleKey(Rune baseLetter, IEnumerable<string> markIds)
         => $"{baseLetter.Value:X}|{string.Join('\u001F', markIds.OrderBy(id => id, StringComparer.Ordinal))}";
 
+    private static string MakePathRuleKey(
+        Rune baseLetter,
+        Rune? secondLetter,
+        IEnumerable<string> markIds,
+        IEnumerable<string> operationIds)
+    {
+        var second = secondLetter?.Value.ToString("X", CultureInfo.InvariantCulture) ?? "-";
+        var kindAndIds = markIds.Any()
+            ? $"M|{string.Join('\u001F', markIds.OrderBy(id => id, StringComparer.Ordinal))}"
+            : $"O|{string.Join('\u001F', operationIds.OrderBy(id => id, StringComparer.Ordinal))}";
+
+        return $"{baseLetter.Value:X}|{second}|{kindAndIds}";
+    }
+
     private static string FormatJsonException(JsonException exception)
     {
         if (exception.LineNumber is long line && exception.BytePositionInLine is long position)
@@ -456,6 +884,8 @@ public sealed class AccentCatalogLoader
         public List<MarkDto?>? Marks { get; set; }
 
         public CompositionDto? Composition { get; set; }
+
+        public LetterCompositionDto? LetterComposition { get; set; }
     }
 
     private sealed class PositionDto
@@ -494,5 +924,66 @@ public sealed class AccentCatalogLoader
         public string? ResultCodePoint { get; set; }
 
         public string? Note { get; set; }
+    }
+
+    private sealed class LetterCompositionDto
+    {
+        public List<BlockDto?>? Blocks { get; set; }
+
+        public List<OperationDto?>? Operations { get; set; }
+
+        public List<PathRuleDto?>? Rules { get; set; }
+
+        public List<OtherLetterDto?>? OtherLetters { get; set; }
+    }
+
+    private sealed class BlockDto
+    {
+        public string? Id { get; set; }
+
+        public string? DisplayName { get; set; }
+
+        public string? FirstCodePoint { get; set; }
+
+        public string? LastCodePoint { get; set; }
+    }
+
+    private sealed class OperationDto
+    {
+        public string? Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? Group { get; set; }
+
+        public string? Description { get; set; }
+
+        public bool RequiresSecondLetter { get; set; }
+    }
+
+    private sealed class PathRuleDto
+    {
+        public string? Base { get; set; }
+
+        public string? Second { get; set; }
+
+        public List<string?>? Marks { get; set; }
+
+        public List<string?>? Operations { get; set; }
+
+        public string? ResultCodePoint { get; set; }
+
+        public string? Note { get; set; }
+    }
+
+    private sealed class OtherLetterDto
+    {
+        public string? CodePoint { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? Block { get; set; }
+
+        public List<string?>? Aliases { get; set; }
     }
 }

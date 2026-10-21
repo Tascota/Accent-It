@@ -14,17 +14,20 @@ namespace AccentIt;
 public partial class CompactWindow : Window
 {
     private readonly List<string> _selectedMarkIds = new();
+    private readonly List<string> _selectedOperationIds = new();
     private readonly Dictionary<string, ToggleButton> _markButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ToggleButton> _operationButtons = new(StringComparer.Ordinal);
     private readonly AccentCatalog? _catalog;
-    private readonly CatalogLoadResult? _loadResult;
     private readonly TargetContext? _target;
     private CompositionResult? _lastResult;
     private CompositionMode _outputMode = CompositionMode.Nfc;
     private bool _uiReady;
     private bool _updatingMarkButtons;
+    private bool _updatingOperationButtons;
     private bool _updatingOutputMode;
     private bool _busy;
     private bool _hasInserted;
+    private ToolPanelMode _toolPanelMode;
 
     // 窗口不在前台时，Esc/Enter 会落到目标应用。
     // 此时按钮文字不显示快捷键提示，等窗口真正被激活后再恢复。
@@ -51,19 +54,21 @@ public partial class CompactWindow : Window
 
     public CompactWindow(
         AccentCatalog? catalog,
-        CatalogLoadResult? loadResult,
         TargetContext? target,
         CompositionSnapshot? initial = null)
     {
         _catalog = catalog;
-        _loadResult = loadResult;
         _target = target;
 
         InitializeComponent();
+        ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
+        UpdateThemeToggleUi();
 
         _outputMode = _catalog?.CompositionMode ?? CompositionMode.Nfc;
         UpdateOutputModeUi();
         BuildMarkLayout();
+        BuildOperationGroups();
+        BuildOtherLetterTiles();
         UpdateCatalogBanner();
         UpdateTargetUi();
         ApplyCatalogAvailability();
@@ -82,6 +87,7 @@ public partial class CompactWindow : Window
         // 在 Show 之前创建 HWND，才能用 SetWindowPos 按物理像素放置；
         // 否则 WPF 要等窗口显示后才有原生句柄。
         new WindowInteropHelper(this).EnsureHandle();
+        ThemeManager.ApplyWindowChrome(this);
         PositionWindow();
     }
 
@@ -128,36 +134,23 @@ public partial class CompactWindow : Window
     {
         if (_catalog is null)
         {
-            TargetHintTextBlock.Text = "符号目录加载失败，无法组合或插入。";
+            TargetHintTextBlock.Text = "符号目录不可用";
             return;
         }
 
         if (_target is null || !_target.HasUsableTarget)
         {
-            TargetHintTextBlock.Text = _target is { IsExternal: false, WindowHandle: not 0 }
-                ? "当前目标是 Accent It 自己：Enter 只复制结果，不会修改自身。"
-                : "没有捕获到外部目标：Enter 只复制结果，不会修改其他应用。";
+            TargetHintTextBlock.Text = "无外部目标，仅复制";
             return;
         }
 
         if (_target.IsPasswordField)
         {
-            TargetHintTextBlock.Text = $"目标：{_target.DisplayName}（密码框，不会自动插入）";
+            TargetHintTextBlock.Text = $"目标：{_target.DisplayName}（密码框）";
             return;
         }
 
-        var location = _target.CaretSource switch
-        {
-            CaretSource.Win32Caret => "已定位系统光标",
-            CaretSource.UiaTextSelection => "已定位文本选区",
-            CaretSource.UiaFocusBounds => "已定位输入框",
-            _ => "未定位到光标，使用备用位置"
-        };
-
-        TargetHintTextBlock.Text = $"目标：{_target.DisplayName}（{location}）";
-        TargetHintTextBlock.ToolTip = _target.IsPasswordField
-            ? "检测到密码框，不会读取内容，也不会自动插入。"
-            : "插入时会重新验证这个窗口和输入焦点是否仍然有效。";
+        TargetHintTextBlock.Text = $"目标：{_target.DisplayName}";
     }
 
     private void PositionWindow()
@@ -233,6 +226,8 @@ public partial class CompactWindow : Window
     private void ResetComposition()
     {
         _selectedMarkIds.Clear();
+        _selectedOperationIds.Clear();
+        SetSecondLetterTextQuietly(string.Empty);
         BaseLetterBox.Text = "a";
         BaseLetterBox.SelectAll();
 
@@ -244,7 +239,14 @@ public partial class CompactWindow : Window
 
     /// <summary>读取当前输入，供“完整编辑器（F2）”切换时带过去。</summary>
     public CompositionSnapshot CreateSnapshot()
-        => new(BaseLetterBox.Text, _selectedMarkIds.ToArray(), _outputMode);
+        => new(
+            BaseLetterBox.Text,
+            _selectedMarkIds.ToArray(),
+            _outputMode,
+            _selectedOperationIds.ToArray(),
+            RequiresSecondLetter() && !string.IsNullOrEmpty(SecondLetterBox.Text)
+                ? SecondLetterBox.Text
+                : null);
 
     /// <summary>
     /// 应用从完整编辑器带过来的输入。快照里的符号 id 可能已被用户
@@ -257,6 +259,7 @@ public partial class CompactWindow : Window
         try
         {
             _selectedMarkIds.Clear();
+            _selectedOperationIds.Clear();
 
             if (_catalog is not null)
             {
@@ -267,10 +270,20 @@ public partial class CompactWindow : Window
                         _selectedMarkIds.Add(markId);
                     }
                 }
+
+                foreach (var operationId in (snapshot.OperationIds ?? Array.Empty<string>())
+                             .Distinct(StringComparer.Ordinal))
+                {
+                    if (_catalog.LetterComposition?.FindOperation(operationId) is not null)
+                    {
+                        _selectedOperationIds.Add(operationId);
+                    }
+                }
             }
 
             BaseLetterBox.Text = snapshot.BaseLetterText ?? string.Empty;
             BaseLetterBox.SelectAll();
+            SecondLetterBox.Text = snapshot.SecondLetterText ?? string.Empty;
 
             _outputMode = snapshot.OutputMode;
             UpdateOutputModeUi();
@@ -299,6 +312,8 @@ public partial class CompactWindow : Window
         try
         {
             _selectedMarkIds.Clear();
+            _selectedOperationIds.Clear();
+            SecondLetterBox.Text = string.Empty;
             BaseLetterBox.Text = string.Empty;
         }
         finally
@@ -308,33 +323,23 @@ public partial class CompactWindow : Window
 
         _lastResult = null;
         PreviewTextBlock.Text = "—";
+        UpdateToolPreviews(null);
+        HideToolPath();
+        CloseToolPanel(focusBase: false);
         UpdateSelectionUi();
         UpdateActionState();
     }
 
     private void UpdateCatalogBanner()
     {
-        var issues = _loadResult?.Issues ?? Array.Empty<CatalogIssue>();
-
         if (_catalog is null)
         {
             CatalogBanner.Visibility = Visibility.Visible;
-            CatalogBanner.Background = GetBrush("ErrorSurfaceBrush");
-            CatalogBanner.BorderBrush = GetBrush("ErrorBrush");
-            CatalogBannerTextBlock.Foreground = GetBrush("ErrorBrush");
-            CatalogBannerTextBlock.Text =
-                "符号目录加载失败，无法组合。请回到完整编辑器查看“诊断详情”。";
-            return;
-        }
-
-        if (_loadResult?.UsedFallback == true || issues.Count > 0)
-        {
-            CatalogBanner.Visibility = Visibility.Visible;
-            CatalogBanner.Background = GetBrush("WarningSurfaceBrush");
-            CatalogBanner.BorderBrush = GetBrush("WarningBorderBrush");
-            CatalogBannerTextBlock.Foreground = GetBrush("InkBrush");
-            CatalogBannerTextBlock.Text =
-                "用户符号目录有问题，已临时使用默认配置。详情见完整编辑器的“诊断详情”。";
+            CatalogBanner.SetResourceReference(Border.BackgroundProperty, "ErrorSurfaceBrush");
+            CatalogBanner.SetResourceReference(Border.BorderBrushProperty, "ErrorBrush");
+            SetForeground(CatalogBannerTextBlock, "ErrorBrush");
+            CatalogBannerTextBlock.Text = "符号目录加载失败，无法组合";
+            CatalogBannerTextBlock.ToolTip = "请查看完整编辑器的“诊断详情”";
             return;
         }
 
@@ -356,14 +361,15 @@ public partial class CompactWindow : Window
 
         if (_catalog is null)
         {
-            AboveMarksPanel.Children.Add(new TextBlock
+            var errorText = new TextBlock
             {
-                Text = "符号目录未加载。",
-                FontSize = 10,
+                Text = "符号目录未加载",
+                FontSize = 12,
                 FontStyle = FontStyles.Italic,
-                Foreground = GetBrush("ErrorBrush"),
                 Margin = new Thickness(2)
-            });
+            };
+            SetForeground(errorText, "ErrorBrush");
+            AboveMarksPanel.Children.Add(errorText);
             return;
         }
 
@@ -398,11 +404,11 @@ public partial class CompactWindow : Window
         {
             Text = char.ConvertFromUtf32(0x25CC) + mark.Symbol.ToString(),
             FontFamily = new FontFamily("Cambria Math"),
-            FontSize = 16,
-            Foreground = GetBrush("InkBrush"),
+            FontSize = 18,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
+        SetForeground(glyph, "InkBrush");
 
         var toolTip = $"{mark.Name}（{positionName}）\n{FormatCodePoint(mark.Symbol.Value)}";
 
@@ -411,7 +417,7 @@ public partial class CompactWindow : Window
             toolTip += $"\n{mark.Description}";
         }
 
-        toolTip += "\n\n点击选择或取消；Backspace 删除最后一个符号。";
+        toolTip += "";
 
         var button = new ToggleButton
         {
@@ -428,6 +434,272 @@ public partial class CompactWindow : Window
         button.Unchecked += MarkButton_Unchecked;
         _markButtons[mark.Id] = button;
         return button;
+    }
+
+    /// <summary>
+    /// 变形操作按目录中的分组顺序排列。紧凑窗口只显示操作名，
+    /// 说明和“需要第二字母”放在悬停提示里，避免挤占预览区域。
+    /// </summary>
+    private void BuildOperationGroups()
+    {
+        OperationGroupsPanel.Children.Clear();
+        _operationButtons.Clear();
+
+        var operations = _catalog?.LetterComposition?.Operations;
+
+        if (operations is null || operations.Count == 0)
+        {
+            var emptyText = new TextBlock
+            {
+                Text = "此目录没有变形操作",
+                FontSize = 12,
+                FontStyle = FontStyles.Italic,
+                Margin = new Thickness(2)
+            };
+            SetForeground(emptyText, "MutedBrush");
+            OperationGroupsPanel.Children.Add(emptyText);
+            return;
+        }
+
+        foreach (var group in operations.GroupBy(operation =>
+                     string.IsNullOrWhiteSpace(operation.Group) ? "其他" : operation.Group))
+        {
+            var groupTitle = new TextBlock
+            {
+                Text = group.Key,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(2, 3, 2, 2)
+            };
+            SetForeground(groupTitle, "MutedBrush");
+
+            var wrap = new WrapPanel();
+            foreach (var operation in group)
+            {
+                wrap.Children.Add(CreateOperationButton(operation));
+            }
+
+            var groupPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            groupPanel.Children.Add(groupTitle);
+            groupPanel.Children.Add(wrap);
+            OperationGroupsPanel.Children.Add(groupPanel);
+        }
+    }
+
+    private ToggleButton CreateOperationButton(LetterOperation operation)
+    {
+        var toolTip = operation.Description ?? operation.Name;
+
+        if (operation.RequiresSecondLetter)
+        {
+            toolTip += "\n需要输入第二字母";
+        }
+
+        var button = new ToggleButton
+        {
+            Content = operation.Name,
+            Style = (Style)FindResource("CompactOperationToggleStyle"),
+            Tag = operation.Id,
+            ToolTip = toolTip,
+            IsChecked = _selectedOperationIds.Contains(operation.Id)
+        };
+
+        AutomationProperties.SetName(button, operation.Name);
+        AutomationProperties.SetAutomationId(button, $"compact-operation-{operation.Id}");
+        button.Checked += OperationButton_Checked;
+        button.Unchecked += OperationButton_Unchecked;
+        _operationButtons[operation.Id] = button;
+        return button;
+    }
+
+    private void OperationButton_Checked(object sender, RoutedEventArgs e)
+        => ApplyOperationToggle(sender, isSelected: true);
+
+    private void OperationButton_Unchecked(object sender, RoutedEventArgs e)
+        => ApplyOperationToggle(sender, isSelected: false);
+
+    private void ApplyOperationToggle(object sender, bool isSelected)
+    {
+        if (_updatingOperationButtons
+            || _busy
+            || _catalog?.LetterComposition is null
+            || sender is not ToggleButton button
+            || button.Tag is not string operationId)
+        {
+            return;
+        }
+
+        if (isSelected)
+        {
+            if (!_selectedOperationIds.Contains(operationId))
+            {
+                _selectedOperationIds.Add(operationId);
+            }
+        }
+        else
+        {
+            _selectedOperationIds.Remove(operationId);
+        }
+
+        UpdateSelectionUi();
+        UpdatePreview();
+
+        // 刚选中“合字”时直接进入第二字母输入框，省去再点一次。
+        if (isSelected
+            && RequiresSecondLetter()
+            && string.IsNullOrEmpty(SecondLetterBox.Text))
+        {
+            SecondLetterBox.Focus();
+            SecondLetterBox.SelectAll();
+        }
+    }
+
+    private void BuildOtherLetterTiles()
+    {
+        OtherLetterTilesPanel.Children.Clear();
+
+        var composition = _catalog?.LetterComposition;
+
+        if (composition is null)
+        {
+            OtherLetterSearchHintTextBlock.Visibility = Visibility.Collapsed;
+            OtherLettersCountTextBlock.Text = "符号目录不可用";
+            return;
+        }
+
+        var query = OtherLetterSearchBox.Text.Trim();
+        OtherLetterSearchHintTextBlock.Visibility = string.IsNullOrEmpty(query)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        var matches = composition.OtherLetters
+            .Where(letter => MatchesOtherLetterSearch(letter, composition, query))
+            .ToArray();
+
+        OtherLettersCountTextBlock.Text = string.IsNullOrEmpty(query)
+            ? $"共 {matches.Length} 个字符"
+            : $"找到 {matches.Length} 个字符";
+
+        if (matches.Length == 0)
+        {
+            var emptyText = new TextBlock
+            {
+                Text = "没有匹配的字符。",
+                FontSize = 12,
+                FontStyle = FontStyles.Italic,
+                Margin = new Thickness(2, 4, 2, 2)
+            };
+            SetForeground(emptyText, "MutedBrush");
+            OtherLetterTilesPanel.Children.Add(emptyText);
+            return;
+        }
+
+        foreach (var letter in matches)
+        {
+            OtherLetterTilesPanel.Children.Add(CreateOtherLetterButton(letter, composition));
+        }
+    }
+
+    private static bool MatchesOtherLetterSearch(
+        OtherLetter letter,
+        LetterCompositionCatalog composition,
+        string query)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            return true;
+        }
+
+        var blockName = letter.BlockId is null
+            ? null
+            : composition.FindBlock(letter.BlockId)?.DisplayName;
+
+        return letter.Letter.ToString().Contains(query, StringComparison.OrdinalIgnoreCase)
+               || letter.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+               || letter.Aliases.Any(alias =>
+                   alias.Contains(query, StringComparison.OrdinalIgnoreCase))
+               || FormatCodePoint(letter.Letter.Value)
+                   .Contains(query, StringComparison.OrdinalIgnoreCase)
+               || (blockName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private Button CreateOtherLetterButton(
+        OtherLetter letter,
+        LetterCompositionCatalog composition)
+    {
+        var blockName = letter.BlockId is null
+            ? null
+            : composition.FindBlock(letter.BlockId)?.DisplayName;
+        var codePoint = FormatCodePoint(letter.Letter.Value);
+
+        var glyph = new TextBlock
+        {
+            Text = letter.Letter.ToString(),
+            FontFamily = new FontFamily("Cambria Math"),
+            FontSize = 18,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        SetForeground(glyph, "InkBrush");
+
+        var toolTip = $"{letter.Name}\n{codePoint}";
+
+        if (!string.IsNullOrWhiteSpace(blockName))
+        {
+            toolTip += $"\n{blockName}";
+        }
+
+        var button = new Button
+        {
+            Content = glyph,
+            Style = (Style)FindResource("CompactSecondaryButtonStyle"),
+            Width = 32,
+            Height = 32,
+            Padding = new Thickness(0),
+            Margin = new Thickness(2),
+            Tag = letter,
+            ToolTip = toolTip
+        };
+
+        AutomationProperties.SetName(button, $"{letter.Name}（{codePoint}）");
+        AutomationProperties.SetAutomationId(
+            button,
+            $"compact-other-letter-{letter.Letter.Value:X4}");
+        button.Click += OtherLetterButton_Click;
+        return button;
+    }
+
+    private void OtherLetterButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy || sender is not Button { Tag: OtherLetter letter })
+        {
+            return;
+        }
+
+        _uiReady = false;
+
+        try
+        {
+            _selectedMarkIds.Clear();
+            _selectedOperationIds.Clear();
+            SecondLetterBox.Text = string.Empty;
+            BaseLetterBox.Text = letter.Letter.ToString();
+            BaseLetterBox.SelectAll();
+        }
+        finally
+        {
+            _uiReady = true;
+        }
+
+        CloseToolPanel(focusBase: false);
+        UpdateSelectionUi();
+        UpdatePreview();
+        SetStatus($"已选择 {letter.Letter}");
+        BaseLetterBox.Focus();
+        BaseLetterBox.SelectAll();
     }
 
     private string GetPositionName(string positionId)
@@ -470,7 +742,8 @@ public partial class CompactWindow : Window
 
     private void UpdateSelectionUi()
     {
-        // 紧凑窗口不再显示已选符号列表；按钮高亮和中央预览就是选中状态。
+        // 紧凑窗口不显示独立的已选符号列表；按钮高亮和中央预览就是选中状态。
+        // 变形操作额外保留一条“已选”摘要，方便确认当前路径。
         _updatingMarkButtons = true;
 
         try
@@ -484,6 +757,61 @@ public partial class CompactWindow : Window
         {
             _updatingMarkButtons = false;
         }
+
+        _updatingOperationButtons = true;
+
+        try
+        {
+            foreach (var pair in _operationButtons)
+            {
+                pair.Value.IsChecked = _selectedOperationIds.Contains(pair.Key);
+            }
+        }
+        finally
+        {
+            _updatingOperationButtons = false;
+        }
+
+        if (_selectedOperationIds.Count > 0)
+        {
+            var names = _selectedOperationIds
+                .Select(operationId =>
+                    _catalog?.LetterComposition?.FindOperation(operationId)?.Name
+                    ?? operationId);
+            SelectedOperationsTextBlock.Text = "已选：" + string.Join(" + ", names);
+            SelectedOperationsTextBlock.Visibility = Visibility.Visible;
+            ClearOperationsButton.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            SelectedOperationsTextBlock.Visibility = Visibility.Collapsed;
+            ClearOperationsButton.Visibility = Visibility.Collapsed;
+        }
+
+        var requiresSecondLetter = RequiresSecondLetter();
+        SecondLetterPanel.Visibility = requiresSecondLetter
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!requiresSecondLetter && !string.IsNullOrEmpty(SecondLetterBox.Text))
+        {
+            SetSecondLetterTextQuietly(string.Empty);
+        }
+    }
+
+    private void SetSecondLetterTextQuietly(string text)
+    {
+        var wasReady = _uiReady;
+        _uiReady = false;
+
+        try
+        {
+            SecondLetterBox.Text = text;
+        }
+        finally
+        {
+            _uiReady = wasReady;
+        }
     }
 
     private void BaseLetterBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -494,6 +822,114 @@ public partial class CompactWindow : Window
         }
 
         UpdatePreview();
+    }
+
+    private void SecondLetterBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_uiReady)
+        {
+            return;
+        }
+
+        UpdatePreview();
+    }
+
+    private void OtherLetterSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_uiReady)
+        {
+            return;
+        }
+
+        BuildOtherLetterTiles();
+    }
+
+    private void OperationsButton_Click(object sender, RoutedEventArgs e)
+        => ToggleToolPanel(ToolPanelMode.Operations);
+
+    private void OtherLettersButton_Click(object sender, RoutedEventArgs e)
+        => ToggleToolPanel(ToolPanelMode.OtherLetters);
+
+    private void CloseToolPanelButton_Click(object sender, RoutedEventArgs e)
+        => CloseToolPanel();
+
+    private void ToggleToolPanel(ToolPanelMode mode)
+    {
+        if (_busy || _catalog is null)
+        {
+            return;
+        }
+
+        if (_toolPanelMode == mode)
+        {
+            CloseToolPanel();
+            return;
+        }
+
+        _toolPanelMode = mode;
+        OperationsToolPanel.Visibility = mode == ToolPanelMode.Operations
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        OtherLettersToolPanel.Visibility = mode == ToolPanelMode.OtherLetters
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        ToolPanel.Visibility = Visibility.Visible;
+        // 面板覆盖预览和状态行；状态行隐藏后，路径/错误只在面板内部显示一次。
+        StatusTextBlock.Visibility = Visibility.Collapsed;
+
+        UpdateSelectionUi();
+        UpdatePreview();
+
+        if (mode == ToolPanelMode.OtherLetters)
+        {
+            OtherLetterSearchBox.Focus();
+            OtherLetterSearchBox.SelectAll();
+        }
+        else if (_operationButtons.Values.FirstOrDefault() is { } firstOperation)
+        {
+            firstOperation.Focus();
+        }
+        else
+        {
+            OperationsCloseButton.Focus();
+        }
+    }
+
+    private void CloseToolPanel(bool focusBase = true)
+    {
+        if (_toolPanelMode == ToolPanelMode.None)
+        {
+            return;
+        }
+
+        _toolPanelMode = ToolPanelMode.None;
+        ToolPanel.Visibility = Visibility.Collapsed;
+        OperationsToolPanel.Visibility = Visibility.Collapsed;
+        OtherLettersToolPanel.Visibility = Visibility.Collapsed;
+        StatusTextBlock.Visibility = Visibility.Visible;
+
+        if (focusBase
+            && !_busy
+            && IsActive
+            && BaseLetterBox.IsEnabled)
+        {
+            BaseLetterBox.Focus();
+            BaseLetterBox.SelectAll();
+        }
+    }
+
+    private void ClearOperationsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _selectedOperationIds.Clear();
+        SetSecondLetterTextQuietly(string.Empty);
+        UpdateSelectionUi();
+        UpdatePreview();
+        SetStatus("已清空变形");
     }
 
     private void OutputModeRadio_Checked(object sender, RoutedEventArgs e)
@@ -531,14 +967,20 @@ public partial class CompactWindow : Window
         }
     }
 
+    private bool RequiresSecondLetter()
+        => _selectedOperationIds.Any(operationId =>
+            _catalog?.LetterComposition?.FindOperation(operationId)?.RequiresSecondLetter == true);
+
     private void UpdatePreview()
     {
         _lastResult = null;
+        UpdateToolPreviews(null);
 
         if (_catalog is null)
         {
             PreviewTextBlock.Text = "—";
-            SetStatus("符号目录加载失败，无法组合。", isError: true);
+            SetStatus(string.Empty);
+            HideToolPath();
             UpdateActionState();
             return;
         }
@@ -547,31 +989,168 @@ public partial class CompactWindow : Window
         {
             PreviewTextBlock.Text = "—";
             SetStatus(inputError, isError: true);
+            UpdateToolPathError(DescribeFailure(inputError));
             UpdateActionState();
             return;
         }
 
-        var result = UnicodeComposer.Compose(baseLetter, _selectedMarkIds, _catalog, _outputMode);
+        var result = UnicodeComposer.Compose(
+            baseLetter,
+            _selectedMarkIds,
+            _catalog,
+            _outputMode,
+            _selectedOperationIds,
+            RequiresSecondLetter() ? SecondLetterBox.Text : null);
 
         if (!result.IsValid)
         {
             PreviewTextBlock.Text = "—";
-            SetStatus(result.Error ?? "组合失败。", isError: true);
+            var message = DescribeFailure(result.Error);
+            SetStatus(message, isError: true);
+            UpdateToolPathError(message);
             UpdateActionState();
             return;
         }
 
         _lastResult = result;
         PreviewTextBlock.Text = result.Output;
+        UpdateToolPreviews(result.Output);
 
-        var enterHint = CanInsert ? "Enter 插入" : "Enter 复制";
-        var selection = _selectedMarkIds.Count == 0
-            ? "尚未选择符号"
-            : $"已选 {_selectedMarkIds.Count} 个符号";
+        // 只有命中路径时才显示路径提示；普通“字母 + 符号”仍然保持干净的状态行。
+        var pathText = BuildPathFeedback(result);
 
-        SetStatus($"{DescribeKind(result.Kind)} · {selection} · {enterHint}。");
+        if (pathText is null)
+        {
+            SetStatus(string.Empty);
+            HideToolPath();
+        }
+        else
+        {
+            SetStatus(pathText);
+            UpdateToolPathSuccess(pathText);
+        }
 
         UpdateActionState();
+    }
+
+    private string? BuildPathFeedback(CompositionResult result)
+    {
+        if (result.AppliedPathRule is { } pathRule)
+        {
+            return "变形路径：" + DescribePathRule(pathRule);
+        }
+
+        if (result.AppliedMarkPathRule is { } markPathRule)
+        {
+            return "符号例外：" + DescribeMarkPathRule(markPathRule);
+        }
+
+        return null;
+    }
+
+    private static string DescribeFailure(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            return "组合失败";
+        }
+
+        if (error.Contains("没有这条组合路径", StringComparison.Ordinal))
+        {
+            return "没有这条组合路径";
+        }
+
+        if (error.Contains("第二个字母", StringComparison.Ordinal))
+        {
+            return error.Contains("无效", StringComparison.Ordinal)
+                ? "第二个字母无效"
+                : "需要第二个字母";
+        }
+
+        return error;
+    }
+
+    private string DescribePathRule(LetterPathRule rule)
+    {
+        var parts = new List<string> { rule.BaseLetter.ToString() };
+
+        if (rule.SecondLetter is { } secondLetter)
+        {
+            parts.Add(secondLetter.ToString());
+        }
+
+        foreach (var operationId in rule.OperationIds)
+        {
+            var operation = _catalog?.LetterComposition?.FindOperation(operationId);
+            parts.Add(operation?.Name ?? operationId);
+        }
+
+        var text = $"{string.Join(" + ", parts)} → "
+                   + $"{rule.Result}（{FormatCodePoint(rule.Result.Value)}）";
+
+        if (!string.IsNullOrWhiteSpace(rule.Note)
+            && !rule.Note.Contains('→'))
+        {
+            text += "；" + rule.Note;
+        }
+
+        return text;
+    }
+
+    private string DescribeMarkPathRule(LetterPathRule rule)
+    {
+        var parts = new List<string> { rule.BaseLetter.ToString() };
+        parts.AddRange(rule.MarkIds.Select(markId =>
+            _catalog?.FindMark(markId)?.Name ?? markId));
+        var text = $"{string.Join(" + ", parts)} → "
+                   + $"{rule.Result}（{FormatCodePoint(rule.Result.Value)}）";
+
+        if (!string.IsNullOrWhiteSpace(rule.Note)
+            && !rule.Note.Contains('→'))
+        {
+            text += "；" + rule.Note;
+        }
+
+        return text;
+    }
+
+    private void UpdateToolPreviews(string? output)
+    {
+        var text = string.IsNullOrEmpty(output) ? "—" : output;
+        OperationsPreviewTextBlock.Text = text;
+        OtherLettersPreviewTextBlock.Text = text;
+    }
+
+    private void UpdateToolPathSuccess(string message)
+    {
+        if (_selectedOperationIds.Count == 0)
+        {
+            HideToolPath();
+            return;
+        }
+
+        OperationsPathTextBlock.Text = message;
+        SetForeground(OperationsPathTextBlock, "AccentBrush");
+        OperationsPathTextBlock.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateToolPathError(string message)
+    {
+        if (_selectedOperationIds.Count == 0)
+        {
+            HideToolPath();
+            return;
+        }
+
+        OperationsPathTextBlock.Text = message;
+        SetForeground(OperationsPathTextBlock, "ErrorBrush");
+        OperationsPathTextBlock.Visibility = Visibility.Visible;
+    }
+
+    private void HideToolPath()
+    {
+        OperationsPathTextBlock.Text = string.Empty;
+        OperationsPathTextBlock.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>
@@ -590,36 +1169,31 @@ public partial class CompactWindow : Window
         BelowMarksPanel.IsEnabled = editingEnabled;
         LeftMarksPanel.IsEnabled = editingEnabled;
         RightMarksPanel.IsEnabled = editingEnabled;
+        OperationsButton.IsEnabled = editingEnabled;
+        OtherLettersButton.IsEnabled = editingEnabled;
+        ToolPanel.IsEnabled = editingEnabled;
         SwitchToEditorButton.IsEnabled = !_busy;
 
         CopyResultButton.IsEnabled = hasResult && !_busy;
         InsertButton.IsEnabled = hasResult && CanInsert && !_busy;
 
         var showKeyHints = !_compactKeysUnavailable;
-        InsertButton.Content = showKeyHints ? "插入（Enter）" : "插入";
+        InsertButton.Content = showKeyHints ? "插入 (Enter)" : "插入";
         CancelButton.Content = _hasInserted
-            ? (showKeyHints ? "关闭（Esc）" : "关闭")
-            : (showKeyHints ? "取消（Esc）" : "取消");
+            ? (showKeyHints ? "关闭 (Esc)" : "关闭")
+            : (showKeyHints ? "取消 (Esc)" : "取消");
 
         if (_busy)
         {
-            ActionHintTextBlock.Text = "正在插入，请稍候…";
+            ActionHintTextBlock.Text = "正在插入…";
         }
         else if (_compactKeysUnavailable)
         {
-            ActionHintTextBlock.Text = "窗口未在前台 · 按全局快捷键切回";
-        }
-        else if (!CanInsert)
-        {
-            ActionHintTextBlock.Text = "Enter 只复制";
-        }
-        else if (_hasInserted)
-        {
-            ActionHintTextBlock.Text = "可继续输入 · Enter 插入 · Esc 关闭";
+            ActionHintTextBlock.Text = "按全局快捷键切回";
         }
         else
         {
-            ActionHintTextBlock.Text = "Enter 插入 · Esc 取消";
+            ActionHintTextBlock.Text = string.Empty;
         }
 
         CancelButton.IsEnabled = !_busy;
@@ -647,6 +1221,13 @@ public partial class CompactWindow : Window
                 }
 
                 e.Handled = true;
+
+                if (_toolPanelMode != ToolPanelMode.None)
+                {
+                    CloseToolPanel();
+                    return;
+                }
+
                 Close();
                 return;
 
@@ -672,16 +1253,41 @@ public partial class CompactWindow : Window
 
             case Key.Back when Keyboard.FocusedElement is not TextBoxBase && !_busy:
                 e.Handled = true;
-                RemoveLastMark();
+                RemoveLastInput();
                 return;
         }
     }
 
-    private void RemoveLastMark()
+    /// <summary>
+    /// Backspace 的删除顺序是：第二字母 → 最后一个变形 → 最后一个符号。
+    /// 这与完整编辑器的撤销顺序保持一致。
+    /// </summary>
+    private void RemoveLastInput()
     {
+        if (RequiresSecondLetter() && !string.IsNullOrEmpty(SecondLetterBox.Text))
+        {
+            SetSecondLetterTextQuietly(string.Empty);
+            UpdateSelectionUi();
+            UpdatePreview();
+            SetStatus("已删除第二个字母");
+            return;
+        }
+
+        if (_selectedOperationIds.Count > 0)
+        {
+            var operationId = _selectedOperationIds[^1];
+            _selectedOperationIds.RemoveAt(_selectedOperationIds.Count - 1);
+            var operation = _catalog?.LetterComposition?.FindOperation(operationId);
+
+            UpdateSelectionUi();
+            UpdatePreview();
+            SetStatus(operation is null ? "已删除最后一个变形" : $"已删除：{operation.Name}");
+            return;
+        }
+
         if (_selectedMarkIds.Count == 0)
         {
-            SetStatus("没有可删除的符号。");
+            SetStatus("没有可删除的输入。");
             return;
         }
 
@@ -691,7 +1297,7 @@ public partial class CompactWindow : Window
 
         UpdateSelectionUi();
         UpdatePreview();
-        SetStatus(mark is null ? "已删除最后一个符号。" : $"已删除：{mark.Name}。");
+        SetStatus(mark is null ? "已删除最后一个符号" : $"已删除：{mark.Name}");
     }
 
     private void InsertButton_Click(object sender, RoutedEventArgs e)
@@ -706,6 +1312,9 @@ public partial class CompactWindow : Window
         {
             return;
         }
+
+        // 复制反馈会写到状态行；先收起覆盖状态行的工具面板。
+        CloseToolPanel(focusBase: false);
 
         if (!ClipboardPasteService.TrySetResultText(
                 result.Output,
@@ -722,7 +1331,8 @@ public partial class CompactWindow : Window
         _ourClipboardData = resultData;
         _ourClipboardSequence = ClipboardPasteService.GetSequenceNumber();
         SetStatus(
-            $"已复制到剪贴板：{FormatCodePoints(result.CodePoints)}。关闭窗口不会恢复原剪贴板。");
+            "已复制",
+            details: $"已复制到剪贴板：{FormatCodePoints(result.CodePoints)}。关闭窗口不会恢复原剪贴板。");
         UpdateActionState();
     }
 
@@ -744,11 +1354,13 @@ public partial class CompactWindow : Window
             return;
         }
 
+        // 插入过程的状态提示需要占用状态行；先收起覆盖状态行的工具面板。
+        CloseToolPanel(focusBase: false);
+
         var inserted = false;
 
         if (!CanInsert)
         {
-            SetStatus("没有可插入的外部目标，或目标是密码框；已改为复制结果。");
             CopyResult();
             return;
         }
@@ -756,7 +1368,7 @@ public partial class CompactWindow : Window
         if (!ForegroundWindowService.TryValidate(_target, out var validationError))
         {
             SetStatus(
-                $"无法插入：{validationError} 可直接“复制结果”后手动粘贴。",
+                $"无法插入：{validationError} 可“复制结果”后手动粘贴",
                 isError: true);
             return;
         }
@@ -780,7 +1392,7 @@ public partial class CompactWindow : Window
                     out var clipboardError))
             {
                 SetStatus(
-                    $"无法写入剪贴板：{clipboardError} 目标没有被修改。",
+                    $"无法写入剪贴板：{clipboardError} 目标没有被修改",
                     isError: true);
                 await TryReturnToCompactAsync();
                 return;
@@ -798,7 +1410,7 @@ public partial class CompactWindow : Window
                 var restoreNote = RestoreClipboardAfterFailedActivation();
                 await TryReturnToCompactAsync();
                 SetStatus(
-                    $"无法插入：{activation.Message} 未发送粘贴。{restoreNote}可直接复制结果。",
+                    $"无法插入：{activation.Message} 未发送粘贴，{restoreNote}可直接复制结果",
                     isError: true);
                 return;
             }
@@ -809,7 +1421,7 @@ public partial class CompactWindow : Window
             {
                 await TryReturnToCompactAsync();
                 SetStatus(
-                    "剪贴板在发送前被其他程序改写，已取消自动插入。请点“复制结果”后手动粘贴。",
+                    "剪贴板在发送前被其他程序改写，已取消自动插入，请点“复制结果”后手动粘贴",
                     isError: true);
                 return;
             }
@@ -819,7 +1431,7 @@ public partial class CompactWindow : Window
             {
                 await TryReturnToCompactAsync();
                 SetStatus(
-                    "修饰键仍未松开，已取消自动插入。请松开按键后重试。",
+                    "修饰键仍未松开，已取消自动插入，请松开按键后重试",
                     isError: true);
                 return;
             }
@@ -828,7 +1440,7 @@ public partial class CompactWindow : Window
             {
                 await TryReturnToCompactAsync();
                 SetStatus(
-                    "目标窗口在发送前失去前台，已取消自动插入。可复制结果后手动粘贴。",
+                    "目标窗口在发送前失去前台，已取消自动插入，可手动粘贴",
                     isError: true);
                 return;
             }
@@ -837,7 +1449,7 @@ public partial class CompactWindow : Window
             {
                 await TryReturnToCompactAsync();
                 SetStatus(
-                    $"发送粘贴失败：{inputError} 可复制结果后手动粘贴。",
+                    $"发送粘贴失败：{inputError} 可手动粘贴",
                     isError: true);
                 return;
             }
@@ -854,25 +1466,30 @@ public partial class CompactWindow : Window
             var clipboardNote = BuildClipboardNote();
             var visibilityNote = reactivated
                 ? string.Empty
-                : " 快速输入窗口未能自动回到前台；按全局快捷键切回后可继续输入。";
-            var recoveryNote = " 若目标中没有出现文本，可在目标中手动按 Ctrl+V；剪贴板中仍保留本次结果。";
-
-            SetStatus(
+                : " 快速输入窗口未能自动回到前台，按快捷键切回后可继续输入";
+            var recoveryNote = " 若目标中没有出现文本，可在目标中手动 Ctrl+V，剪贴板中仍保留本次结果";
+            var details =
                 (targetWasForeground
-                    ? "已向目标发送 Ctrl+V，但无法确认目标是否真的显示文本。"
-                    : "已尝试发送 Ctrl+V，但目标窗口未保持前台。")
-                + " 可继续输入下一个字母；Esc 关闭。"
+                    ? "已向目标发送 Ctrl+V，但无法确认是否显示"
+                    : "已尝试发送 Ctrl+V，但目标窗口未在前台")
+                + " 可继续输入"
                 + recoveryNote
                 + visibilityNote
-                + clipboardNote,
-                isError: !targetWasForeground);
+                + clipboardNote;
+
+            SetStatus(
+                targetWasForeground
+                    ? "已发送粘贴；若未出现，按 Ctrl+V"
+                    : "已尝试粘贴；若未出现，按 Ctrl+V",
+                isError: !targetWasForeground,
+                details: details);
         }
         catch (Exception ex)
         {
             await TryReturnToCompactAsync();
             var recoveryNote = inserted
-                ? " 剪贴板中仍保留本次结果，可在目标中手动按 Ctrl+V。"
-                : " 可复制结果后手动粘贴。";
+                ? " 剪贴板中仍保留本次结果，可在目标中手动 Ctrl+V"
+                : " 可复制结果后手动粘贴";
             SetStatus(
                 $"插入时发生异常：{ex.Message} 未确认目标是否收到粘贴。{recoveryNote}",
                 isError: true);
@@ -919,21 +1536,21 @@ public partial class CompactWindow : Window
                 TimeSpan.FromMilliseconds(700),
                 out var restoreError))
         {
-            return $"原剪贴板恢复失败（{restoreError}），结果仍在剪贴板。";
+            return $"原剪贴板恢复失败（{restoreError}），结果仍在剪贴板";
         }
 
         _clipboardBackup = null;
         _clipboardBackupAttempted = false;
         _ourClipboardData = null;
         _ourClipboardSequence = 0;
-        return "原剪贴板已恢复。";
+        return "原剪贴板已恢复";
     }
 
     private string BuildClipboardNote()
     {
         if (_keepClipboard)
         {
-            return " 你已主动复制结果，关闭时不会恢复原剪贴板。";
+            return " 已主动复制结果，关闭时不会恢复原剪贴板";
         }
 
         if (!string.IsNullOrWhiteSpace(_clipboardWarning))
@@ -941,7 +1558,7 @@ public partial class CompactWindow : Window
             return " " + _clipboardWarning;
         }
 
-        return " 关闭时会尝试恢复原剪贴板。";
+        return " 关闭时会尝试恢复原剪贴板";
     }
 
     /// <summary>
@@ -992,6 +1609,28 @@ public partial class CompactWindow : Window
         return isForeground;
     }
 
+    private void ThemeToggleButton_Click(object sender, RoutedEventArgs e)
+        => ThemeManager.Toggle();
+
+    private void ThemeManager_ThemeChanged(object? sender, EventArgs e)
+    {
+        UpdateThemeToggleUi();
+        ThemeManager.ApplyWindowChrome(this);
+    }
+
+    private void UpdateThemeToggleUi()
+    {
+        var dark = ThemeManager.Current == AppTheme.Dark;
+
+        ThemeToggleButton.Content = dark ? "浅色" : "深色";
+        ThemeToggleButton.ToolTip = dark
+            ? "切换到日间模式"
+            : "切换到深夜模式";
+        AutomationProperties.SetName(
+            ThemeToggleButton,
+            dark ? "切换到日间模式" : "切换到深夜模式");
+    }
+
     private void SwitchToEditorButton_Click(object sender, RoutedEventArgs e)
         => RequestSwitchToEditor();
 
@@ -1014,26 +1653,20 @@ public partial class CompactWindow : Window
         }
     }
 
-    private void SetStatus(string message, bool isError = false)
+    private void SetStatus(string message, bool isError = false, string? details = null)
     {
         StatusTextBlock.Text = message;
-        StatusTextBlock.Foreground = GetBrush(isError ? "ErrorBrush" : "MutedBrush");
+        SetForeground(StatusTextBlock, isError ? "ErrorBrush" : "MutedBrush");
 
-        // 紧凑窗口能显示的状态行有限；把完整文字放到悬停提示里，避免长错误被截断后无法查看。
-        StatusTextBlock.ToolTip = message;
+        // 状态行只显示一句话；完整细节放到悬停提示里，需要时仍可查看。
+        StatusTextBlock.ToolTip = string.IsNullOrWhiteSpace(details)
+            ? (string.IsNullOrWhiteSpace(message) ? null : message)
+            : details;
     }
 
-    private Brush GetBrush(string key) => (Brush)FindResource(key);
-
-    private static string DescribeKind(CompositionKind kind) => kind switch
-    {
-        CompositionKind.BaseOnly => "仅基础字母（尚未添加符号）",
-        CompositionKind.Precomposed => "完整预组合字符",
-        CompositionKind.NfcSequence => "NFC 序列（包含部分预组合）",
-        CompositionKind.NfdSequence => "NFD 序列（完全分解）",
-        CompositionKind.SpecialRule => "显式例外规则",
-        _ => "无效"
-    };
+    // 使用动态资源引用，切换主题时已经在显示的文字颜色也会自动更新。
+    private static void SetForeground(TextBlock element, string resourceKey)
+        => element.SetResourceReference(TextBlock.ForegroundProperty, resourceKey);
 
     private static string FormatCodePoint(int value) => $"U+{value:X4}";
 
@@ -1067,6 +1700,8 @@ public partial class CompactWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
+
         // 关闭时只在剪贴板仍是我们写入的结果时恢复原内容。
         // 用户/其他程序期间复制了新内容时，绝不能覆盖它们。
         if (!_keepClipboard
@@ -1089,5 +1724,12 @@ public partial class CompactWindow : Window
         }
 
         base.OnClosed(e);
+    }
+
+    private enum ToolPanelMode
+    {
+        None,
+        Operations,
+        OtherLetters
     }
 }

@@ -6,87 +6,75 @@ namespace AccentIt.Tests;
 public class AccentCatalogStoreTests
 {
     [Fact]
-    public void FirstLoadCreatesUserCatalogFromSeed()
+    public void LoadsDefaultCatalogWithoutCreatingUserCatalog()
     {
         using var temp = new TemporaryDirectory();
-        var (seedPath, userPath) = CreatePaths(temp);
+        var seedPath = CreateSeedPath(temp);
 
         Directory.CreateDirectory(Path.GetDirectoryName(seedPath)!);
         File.WriteAllText(seedPath, TestCatalog.MinimalJson);
 
-        var store = new AccentCatalogStore(seedPath, userPath);
+        var store = new AccentCatalogStore(seedPath);
         var result = store.LoadEffectiveCatalog();
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Issues));
-        Assert.False(result.UsedFallback);
-        Assert.Equal(userPath, result.SourcePath);
-        Assert.True(File.Exists(userPath));
-        Assert.Equal(File.ReadAllText(seedPath), File.ReadAllText(userPath));
+        Assert.Equal(seedPath, result.SourcePath);
+        Assert.False(File.Exists(Path.Combine(temp.Path, "app", "Data", "accents.jsonc")));
     }
 
     [Fact]
-    public void ExistingUserCatalogIsNotOverwrittenByTheSeed()
+    public void ExistingUserCatalogIsIgnored()
     {
         using var temp = new TemporaryDirectory();
-        var (seedPath, userPath) = CreatePaths(temp);
+        var seedPath = CreateSeedPath(temp);
 
         Directory.CreateDirectory(Path.GetDirectoryName(seedPath)!);
         File.WriteAllText(seedPath, TestCatalog.MinimalJson);
 
-        var store = new AccentCatalogStore(seedPath, userPath);
-        Assert.True(store.LoadEffectiveCatalog().IsSuccess);
-
+        var userPath = Path.Combine(temp.Path, "app", "Data", "accents.jsonc");
+        Directory.CreateDirectory(Path.GetDirectoryName(userPath)!);
         var editedJson = TestCatalog.MinimalJson.Replace(
             "\"name\": \"锐音符\"",
             "\"name\": \"锐音符（已编辑）\"");
-
         File.WriteAllText(userPath, editedJson);
 
-        var secondLoad = store.LoadEffectiveCatalog();
+        var store = new AccentCatalogStore(seedPath);
+        var result = store.LoadEffectiveCatalog();
 
-        Assert.True(secondLoad.IsSuccess, string.Join(Environment.NewLine, secondLoad.Issues));
-        Assert.False(secondLoad.UsedFallback);
-        Assert.Equal("锐音符（已编辑）", secondLoad.Catalog!.FindMark("acute")!.Name);
-        Assert.Contains("已编辑", File.ReadAllText(userPath));
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Issues));
+        Assert.Equal("锐音符", result.Catalog!.FindMark("acute")!.Name);
+        Assert.Equal(editedJson, File.ReadAllText(userPath));
     }
 
     [Fact]
-    public void InvalidUserCatalogFallsBackToSeed()
+    public void InvalidDefaultCatalogFailsWithoutFallback()
     {
         using var temp = new TemporaryDirectory();
-        var (seedPath, userPath) = CreatePaths(temp);
+        var seedPath = CreateSeedPath(temp);
 
         Directory.CreateDirectory(Path.GetDirectoryName(seedPath)!);
-        File.WriteAllText(seedPath, TestCatalog.MinimalJson);
-        Directory.CreateDirectory(Path.GetDirectoryName(userPath)!);
-        File.WriteAllText(userPath, "{ this is not valid json");
+        File.WriteAllText(seedPath, "{ this is not valid json");
 
-        var store = new AccentCatalogStore(seedPath, userPath);
+        var store = new AccentCatalogStore(seedPath);
         var result = store.LoadEffectiveCatalog();
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.UsedFallback);
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Catalog);
         Assert.Equal(seedPath, result.SourcePath);
-        Assert.Contains(result.Issues, issue => issue.Message.Contains("回退到程序自带的默认配置"));
+        Assert.Contains(result.Issues, issue => issue.Message.Contains("JSON 格式错误"));
     }
 
     [Fact]
     public void MissingDefaultCatalogFailsWithoutThrowing()
     {
         using var temp = new TemporaryDirectory();
-        var (seedPath, userPath) = CreatePaths(temp);
-
-        var store = new AccentCatalogStore(seedPath, userPath);
+        var store = new AccentCatalogStore(CreateSeedPath(temp));
         var result = store.LoadEffectiveCatalog();
 
         Assert.False(result.IsSuccess);
-        Assert.Contains(result.Issues, issue => issue.Message.Contains("找不到程序自带的默认符号目录"));
+        Assert.Contains(result.Issues, issue => issue.Message.Contains("找不到符号目录"));
     }
 
-    private static (string SeedPath, string UserPath) CreatePaths(TemporaryDirectory temp)
-    {
-        var seedPath = Path.Combine(temp.Path, "seed", "accents.default.jsonc");
-        var userPath = Path.Combine(temp.Path, "app", "Data", "accents.jsonc");
-        return (seedPath, userPath);
-    }
+    private static string CreateSeedPath(TemporaryDirectory temp)
+        => Path.Combine(temp.Path, "app", "Data", "accents.default.jsonc");
 }

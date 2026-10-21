@@ -71,6 +71,9 @@ accents.jsonc
 # User-editable global hotkey settings created on first run
 settings.jsonc
 
+# UI theme choice written when the user switches light/dark mode
+theme.json
+
 # Tye
 .tye/
 

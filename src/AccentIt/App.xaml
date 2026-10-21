@@ -2,9 +2,143 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:AccentIt"
-             StartupUri="MainWindow.xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-         
+        <ResourceDictionary>
+            <!-- 预置浅色主题作为设计器/加载兜底；启动时 ThemeManager 会按保存的选择替换。 -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/LightTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="ToolTip">
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="8,5" />
+            </Style>
+
+            <Style TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource FieldBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                <Setter Property="CaretBrush" Value="{DynamicResource InkBrush}" />
+            </Style>
+
+            <!-- 滚动条使用主题色，避免深夜模式下出现一条亮白色系统滚动条。 -->
+            <Style x:Key="VerticalScrollBarThumbStyle" TargetType="Thumb">
+                <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBrush}" />
+                <Setter Property="MinHeight" Value="24" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border x:Name="ThumbBorder"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="3"
+                                    Margin="2" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ThumbBorder"
+                                            Property="Background"
+                                            Value="{DynamicResource ScrollBarThumbHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsDragging" Value="True">
+                                    <Setter TargetName="ThumbBorder"
+                                            Property="Background"
+                                            Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="HorizontalScrollBarThumbStyle" TargetType="Thumb">
+                <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBrush}" />
+                <Setter Property="MinWidth" Value="24" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border x:Name="ThumbBorder"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="3"
+                                    Margin="2" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ThumbBorder"
+                                            Property="Background"
+                                            Value="{DynamicResource ScrollBarThumbHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsDragging" Value="True">
+                                    <Setter TargetName="ThumbBorder"
+                                            Property="Background"
+                                            Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ScrollBar">
+                <Setter Property="Width" Value="10" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track"
+                                       Orientation="{TemplateBinding Orientation}"
+                                       IsDirectionReversed="True">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                                      Focusable="False"
+                                                      Opacity="0" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource VerticalScrollBarThumbStyle}" />
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                                      Focusable="False"
+                                                      Opacity="0" />
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="Orientation" Value="Horizontal">
+                        <Setter Property="Width" Value="Auto" />
+                        <Setter Property="Height" Value="10" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ScrollBar">
+                                    <Grid Background="{TemplateBinding Background}">
+                                        <Track x:Name="PART_Track"
+                                               Orientation="Horizontal">
+                                            <Track.DecreaseRepeatButton>
+                                                <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}"
+                                                              Focusable="False"
+                                                              Opacity="0" />
+                                            </Track.DecreaseRepeatButton>
+                                            <Track.Thumb>
+                                                <Thumb Style="{StaticResource HorizontalScrollBarThumbStyle}" />
+                                            </Track.Thumb>
+                                            <Track.IncreaseRepeatButton>
+                                                <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}"
+                                                              Focusable="False"
+                                                              Opacity="0" />
+                                            </Track.IncreaseRepeatButton>
+                                        </Track>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

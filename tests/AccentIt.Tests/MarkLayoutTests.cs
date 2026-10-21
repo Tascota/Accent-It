@@ -11,7 +11,7 @@ public class MarkLayoutTests
     {
         var layout = MarkLayout.Create(TestCatalog.LoadDefault());
 
-        Assert.Equal(12, layout.Above.Count);
+        Assert.Equal(14, layout.Above.Count);
         Assert.Equal(9, layout.Below.Count);
         Assert.Equal(3, layout.Left.Count);
         Assert.Equal(2, layout.Right.Count);
