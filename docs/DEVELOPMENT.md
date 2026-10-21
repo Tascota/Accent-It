@@ -1,6 +1,6 @@
 # Accent It 开发记录
 
-本文记录项目目标、当前进度、关键实现和开发命令。用户使用说明见 [README](../README.md)，实际运行测试记录见 [TESTING](TESTING.md)。
+本文记录项目目标、当前进度、关键实现和开发命令。快速开始见 [README](../README.md)，完整使用细节见 [使用说明](USAGE.md)，配置格式见 [配置说明](CONFIGURATION.md)，实际运行测试记录见 [TESTING](TESTING.md)。
 
 ## 项目目标
 

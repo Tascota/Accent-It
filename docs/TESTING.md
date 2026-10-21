@@ -1,6 +1,6 @@
 # Accent It 测试记录
 
-本文保存 Accent It 的实际运行测试记录，**不构成兼容性承诺**。用户使用说明见 [README](../README.md)，开发进度和构建命令见 [DEVELOPMENT](DEVELOPMENT.md)。
+本文保存 Accent It 的实际运行测试记录，**不构成兼容性承诺**。快速开始见 [README](../README.md)，完整使用细节见 [使用说明](USAGE.md)，开发进度和构建命令见 [DEVELOPMENT](DEVELOPMENT.md)。
 
 测试环境：Windows 11，单显示器，150% 缩放。界面测试使用临时隔离副本和测试快捷键，不操作当时正在运行的 Accent It 实例；涉及插入的测试会临时改写剪贴板，并在开始前提示，均不读取测试前的剪贴板内容（较早的测试使用预先写入的固定文本作为哨兵）。
 

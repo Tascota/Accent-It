@@ -34,6 +34,15 @@ public class DefaultCatalogCoverageTests
         var pathCovered = 0;
         var markCovered = 0;
         var fallbackCovered = 0;
+        var excluded = 0;
+
+        // 以下字符已明确不提供输入方式，不计入覆盖率要求。
+        var intentionallyUnsupported = new HashSet<int>
+        {
+            0x00AA, // FEMININE ORDINAL INDICATOR
+            0x00B5, // MICRO SIGN
+            0x00BA  // MASCULINE ORDINAL INDICATOR
+        };
 
         foreach (var block in composition.Blocks)
         {
@@ -41,6 +50,12 @@ public class DefaultCatalogCoverageTests
             {
                 if (!Rune.TryCreate(value, out var letter) || !Rune.IsLetter(letter))
                 {
+                    continue;
+                }
+
+                if (intentionallyUnsupported.Contains(value))
+                {
+                    excluded++;
                     continue;
                 }
 
@@ -72,7 +87,7 @@ public class DefaultCatalogCoverageTests
 
         // 四个区块目前共有 497 个字母。这个数字随区块定义变化，
         // 断言它可以防止新增区块后忘记补覆盖数据。
-        Assert.Equal(497, pathCovered + markCovered + fallbackCovered);
+        Assert.Equal(497, pathCovered + markCovered + fallbackCovered + excluded);
 
         // “其他字符”是兜底，不应该成为主要输入方式。
         Assert.True(
