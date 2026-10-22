@@ -10,7 +10,7 @@ Accent It 是一个 Windows 桌面工具，用于从基础字母组合出变体�
 - 拉丁文拓展-B (Latin Extended-B，U+0180–U+024F)
 - 国际音标扩展 (IPA Extensions，U+0250–U+02AF)
 
-**声明：**本项目代码部分完全基于 vibe coding，仅以满足本人个人使用需求为目标，请务必不要用于关键生产环境。
+**声明**：本项目代码部分完全基于 vibe coding，仅以满足本人个人使用需求为目标，请务必不要用于关键生产环境。
 
 ## 主要功能
 
@@ -39,6 +39,7 @@ dotnet run --project src/AccentIt
 首次启动会在可执行文件旁的 `Data` 文件夹创建快捷键设置；切换过的主题保存在同一目录的 `theme.json`。构建与测试命令见[开发记录](docs/DEVELOPMENT.md)。
 
 ## 快速使用
+
 本工具包含两套操作 UI，分别适合不同场景：
 
 ### 完整编辑器
