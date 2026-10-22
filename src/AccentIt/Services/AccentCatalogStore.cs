@@ -4,9 +4,8 @@ using AccentIt.Models;
 namespace AccentIt.Services;
 
 /// <summary>
-/// 读取程序自带的符号目录。当前版本不再生成或读取 Data/accents.jsonc：
+/// 读取程序自带的符号目录。
 /// 如需调整符号、字母路径或其他字符，直接修改 accents.default.jsonc。
-/// 旧的 accents.jsonc 会保留在原处，但不再参与加载。
 /// </summary>
 public sealed class AccentCatalogStore
 {

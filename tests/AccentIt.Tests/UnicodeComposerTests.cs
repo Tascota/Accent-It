@@ -477,13 +477,9 @@ public class UnicodeComposerTests
         Assert.True(strokedLambda.IsValid, strokedLambda.Error);
         Assert.Equal(FromCodePoints(0x019B), strokedLambda.Output);
 
-        var hvLigature = ComposeDefaultPath(
-            "h",
-            Array.Empty<string>(),
-            new[] { "ligature" },
-            "v");
-        Assert.True(hvLigature.IsValid, hvLigature.Error);
-        Assert.Equal(FromCodePoints(0x0195), hvLigature.Output);
+        var hvFallback = TestCatalog.LoadDefault().LetterComposition!.OtherLetters
+            .Single(letter => letter.Letter.Value == 0x0195);
+        Assert.Equal("LATIN SMALL LETTER HV", hvFallback.Name);
     }
 
     private CompositionResult ComposeDefaultPath(

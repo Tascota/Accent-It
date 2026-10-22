@@ -2,6 +2,11 @@
 
 本文说明 Accent It 的配置文件位置、符号目录 JSONC 格式和全局快捷键设置。快速开始见 [README](../README.md)，完整使用细节见 [使用说明](USAGE.md)。
 
+## 已知特性
+- NFC 的默认逻辑导致 NFC 规范化结果并不与输入顺序相关，例如 `a` + 锐音符 + 下点符将得到 `ạ` 加上一个锐音符，而非 `á` 加下点。
+- 同样地，NFC 逻辑导致在同一类型的组合符号中是顺序敏感的，`ấ` 只能通过 `a` + 抑扬符 + 锐音符实现，后面两个顺序反过来就无法组合成预组合字符。
+- 组字中不允许完全相同的路径，故因为已有 `d + z = ǳ (U+01F3)`，国际音标中的 `ʣ` 只能通过“其他字符”输入。有完全相同的路径会导致无法加载 `accents.default.jsonc`。
+
 ## 配置文件
 
 符号目录、字母变形路径和全局快捷键都不是写死在代码里的。界面使用的数据来自程序目录旁的 JSONC 文件：
@@ -20,7 +25,7 @@ src/AccentIt/bin/Debug/net10.0-windows/Data/settings.jsonc
 src/AccentIt/bin/Debug/net10.0-windows/Data/theme.json
 ```
 
-程序直接读取 `Data/accents.default.jsonc`，不再生成或读取 `Data/accents.jsonc`。旧版本留下的 `accents.jsonc` 会保留在原处，但不会参与加载。源码中的默认目录位于 `src/AccentIt/Data/accents.default.jsonc`，构建时复制到输出目录。
+源码中的默认目录位于 `src/AccentIt/Data/accents.default.jsonc`，构建时复制到输出目录。
 
 修改配置的步骤：
 
